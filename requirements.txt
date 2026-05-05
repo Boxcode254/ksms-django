@@ -1,0 +1,21 @@
+# Core
+Django>=5.1,<5.2
+python-decouple>=3.8
+
+# Database
+psycopg2-binary>=2.9
+
+# Authentication
+django-allauth>=0.63
+
+# HTMX
+django-htmx>=1.19
+
+# Tailwind
+django-tailwind>=3.8
+
+# Media
+Pillow>=10.3
+
+# Utilities
+whitenoise>=6.7

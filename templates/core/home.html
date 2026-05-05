@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}KSMS — System OK{% endblock %}
+
+{% block content %}
+<main class="flex min-h-screen flex-col items-center justify-center px-4">
+  <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg text-center">
+    <div class="mb-4 text-5xl">🏫</div>
+    <h1 class="text-2xl font-bold text-blue-800 mb-2">Kenya School Management System</h1>
+    <p class="text-gray-500 text-sm mb-6">Phase 0 — Project initialized successfully.</p>
+    <div class="inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-1.5 text-sm font-medium text-green-800">
+      <span class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+      Server running
+    </div>
+    <div class="mt-8 border-t pt-6 text-xs text-gray-400 space-y-1">
+      <p>Django 5.1 · PostgreSQL (Supabase) · HTMX · Tailwind CSS</p>
+      <p>Logged-in features available in Phase 1.</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

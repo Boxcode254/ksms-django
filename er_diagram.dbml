@@ -1,0 +1,199 @@
+// Kenya School Management System — ER Diagram (dbdiagram.io DBML)
+// Phase 0 Architecture | All tables are planned; only core.User is implemented in Phase 0.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: core  (shared users & configuration)
+// ══════════════════════════════════════════════════════════════════════════════
+
+Table core_user {
+  id          bigserial [pk]
+  username    varchar(150) [not null, unique]
+  email       varchar(254) [not null, unique]
+  password    varchar(128) [not null]
+  first_name  varchar(150)
+  last_name   varchar(150)
+  role        varchar(20)  [not null, note: "admin | teacher | student | parent | staff"]
+  phone       varchar(15)
+  avatar      varchar(255)
+  is_active   boolean      [default: true]
+  is_staff    boolean      [default: false]
+  date_joined timestamptz  [default: `now()`]
+  last_login  timestamptz
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: students
+// ══════════════════════════════════════════════════════════════════════════════
+
+Table students_student {
+  id              bigserial   [pk]
+  user_id         bigint      [ref: - core_user.id, not null]
+  admission_no    varchar(20) [unique, not null]
+  date_of_birth   date
+  gender          varchar(10)
+  guardian_name   varchar(200)
+  guardian_phone  varchar(15)
+  guardian_email  varchar(254)
+  class_room_id   bigint      [ref: > academics_classroom.id]
+  enrolled_on     date
+  is_active       boolean     [default: true]
+  photo           varchar(255)
+  address         text
+  created_at      timestamptz [default: `now()`]
+  updated_at      timestamptz
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: academics
+// ══════════════════════════════════════════════════════════════════════════════
+
+Table academics_academic_year {
+  id          bigserial   [pk]
+  name        varchar(20) [not null, note: "e.g. 2025/2026"]
+  start_date  date        [not null]
+  end_date    date        [not null]
+  is_current  boolean     [default: false]
+}
+
+Table academics_term {
+  id               bigserial [pk]
+  academic_year_id bigint    [ref: > academics_academic_year.id, not null]
+  name             varchar(20) [not null, note: "Term 1 | Term 2 | Term 3"]
+  start_date       date
+  end_date         date
+  is_current       boolean  [default: false]
+}
+
+Table academics_grade {
+  id          bigserial   [pk]
+  name        varchar(50) [not null, note: "e.g. Grade 1, Form 1"]
+  level       smallint
+  description text
+}
+
+Table academics_classroom {
+  id          bigserial   [pk]
+  grade_id    bigint      [ref: > academics_grade.id, not null]
+  name        varchar(50) [not null, note: "e.g. 1A, Form 2 North"]
+  capacity    smallint
+  teacher_id  bigint      [ref: > core_user.id, note: "Class teacher"]
+}
+
+Table academics_subject {
+  id          bigserial   [pk]
+  name        varchar(100) [not null]
+  code        varchar(20)  [unique]
+  description text
+}
+
+Table academics_subject_classroom {
+  id           bigserial [pk]
+  subject_id   bigint    [ref: > academics_subject.id]
+  classroom_id bigint    [ref: > academics_classroom.id]
+  teacher_id   bigint    [ref: > core_user.id]
+  note: "Maps which teacher teaches which subject in which class"
+}
+
+Table academics_grade_result {
+  id               bigserial   [pk]
+  student_id       bigint      [ref: > students_student.id]
+  subject_id       bigint      [ref: > academics_subject.id]
+  term_id          bigint      [ref: > academics_term.id]
+  score            decimal(5,2)
+  grade            varchar(5)
+  remarks          text
+  recorded_by_id   bigint      [ref: > core_user.id]
+  recorded_at      timestamptz [default: `now()`]
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: attendance
+// ══════════════════════════════════════════════════════════════════════════════
+
+Table attendance_record {
+  id            bigserial   [pk]
+  student_id    bigint      [ref: > students_student.id, not null]
+  classroom_id  bigint      [ref: > academics_classroom.id]
+  date          date        [not null]
+  status        varchar(10) [not null, note: "present | absent | late | excused"]
+  remarks       text
+  recorded_by_id bigint     [ref: > core_user.id]
+  created_at    timestamptz [default: `now()`]
+
+  indexes {
+    (student_id, date) [unique]
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: finance
+// ══════════════════════════════════════════════════════════════════════════════
+
+Table finance_fee_structure {
+  id               bigserial     [pk]
+  name             varchar(100)  [not null, note: "e.g. Term 1 2025 Tuition"]
+  academic_year_id bigint        [ref: > academics_academic_year.id]
+  term_id          bigint        [ref: > academics_term.id]
+  grade_id         bigint        [ref: > academics_grade.id]
+  amount           decimal(10,2) [not null]
+  due_date         date
+}
+
+Table finance_invoice {
+  id                  bigserial     [pk]
+  student_id          bigint        [ref: > students_student.id, not null]
+  fee_structure_id    bigint        [ref: > finance_fee_structure.id]
+  amount_due          decimal(10,2) [not null]
+  amount_paid         decimal(10,2) [default: 0]
+  status              varchar(20)   [note: "pending | partial | paid | overdue"]
+  issued_date         date          [default: `now()`]
+  due_date            date
+}
+
+Table finance_payment {
+  id              bigserial     [pk]
+  invoice_id      bigint        [ref: > finance_invoice.id, not null]
+  amount          decimal(10,2) [not null]
+  method          varchar(20)   [note: "mpesa | bank | cash | cheque"]
+  reference_no    varchar(100)  [unique]
+  paid_at         timestamptz   [default: `now()`]
+  received_by_id  bigint        [ref: > core_user.id]
+  notes           text
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: communication
+// ══════════════════════════════════════════════════════════════════════════════
+
+Table communication_announcement {
+  id           bigserial    [pk]
+  title        varchar(200) [not null]
+  body         text         [not null]
+  author_id    bigint       [ref: > core_user.id, not null]
+  target_role  varchar(20)  [note: "all | teacher | student | parent | staff"]
+  published_at timestamptz  [default: `now()`]
+  expires_at   timestamptz
+  is_published boolean      [default: false]
+}
+
+Table communication_message {
+  id           bigserial   [pk]
+  sender_id    bigint      [ref: > core_user.id, not null]
+  recipient_id bigint      [ref: > core_user.id, not null]
+  subject      varchar(200)
+  body         text        [not null]
+  is_read      boolean     [default: false]
+  sent_at      timestamptz [default: `now()`]
+  read_at      timestamptz
+}
+
+Table communication_notification {
+  id           bigserial   [pk]
+  user_id      bigint      [ref: > core_user.id, not null]
+  title        varchar(200) [not null]
+  body         text
+  link         varchar(500)
+  is_read      boolean     [default: false]
+  created_at   timestamptz [default: `now()`]
+}
