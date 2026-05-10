@@ -4,30 +4,560 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#1e40af" />
-  <title>{% block title %}KSMS — Kenya School Management System{% endblock %}</title>
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}" />
+  <link rel="manifest" href="{% url 'core:web-manifest' %}" />
+  <link rel="apple-touch-icon" href="{% static 'pwa/icon-192.svg' %}" />
+  <title>{% block title %}EduTrack SMS{% endblock %}</title>
   {% tailwind_css %}
   {% block extra_head %}{% endblock %}
 </head>
-<body class="h-full bg-gray-50 text-gray-900 antialiased">
+<body class="min-h-full text-slate-900 antialiased" hx-boost="true">
+  <div id="global-loading-indicator" class="ksms-progress-bar" data-loading="false" hx-preserve></div>
+  <div class="min-h-screen {% if user.is_authenticated %}lg:flex{% endif %}">
+    {% if user.is_authenticated %}
+      {% with ns=request.resolver_match.namespace|default:'' name=request.resolver_match.url_name|default:'' %}
+        <aside class="ksms-app-sidebar hidden w-[280px] shrink-0 border-r border-blue-300/25 px-5 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto">
+          <a href="{% url 'core:dashboard' %}" class="flex items-center gap-3 px-2 py-1 mb-2">
+            <img src="{% static 'img/logo.png' %}" alt="KSMS Logo" class="h-10 w-10 object-contain">
+            <span>
+              <span class="ksms-display block text-sm font-semibold text-slate-100">EduTrack SMS</span>
+              <span class="block text-[10px] font-medium uppercase tracking-wider text-blue-200/80">School Management System</span>
+            </span>
+          </a>
 
-  {% if messages %}
-    <div class="fixed top-4 right-4 z-50 space-y-2" id="flash-messages">
-      {% for message in messages %}
-        <div class="rounded-lg px-4 py-3 text-sm shadow-md
-          {% if message.tags == 'error' %}bg-red-100 text-red-800
-          {% elif message.tags == 'success' %}bg-green-100 text-green-800
-          {% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800
-          {% else %}bg-blue-100 text-blue-800{% endif %}">
-          {{ message }}
-        </div>
-      {% endfor %}
+          <nav class="mt-6 space-y-6">
+            {% include "components/_nav_links.html" with ns=ns name=name %}
+          </nav>
+
+          <div class="mt-auto space-y-2 border-t border-blue-300/20 pt-5">
+            <a href="{% url 'account_change_password' %}" class="ksms-sidebar-link {% if ns == 'account' and name == 'account_change_password' %}is-active{% endif %}">
+              <span class="ksms-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M16 10V7a4 4 0 0 0-8 0v3M6 10h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Zm6 4v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <span>Password</span>
+            </a>
+            <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+              {% csrf_token %}
+              <button type="submit" class="ksms-sidebar-link w-full text-left">
+                <span class="ksms-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M10 6H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4M14 16l4-4m0 0-4-4m4 4H9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span>Log out</span>
+              </button>
+            </form>
+          </div>
+        </aside>
+      {% endwith %}
+    {% endif %}
+
+    <div class="{% if user.is_authenticated %}flex min-w-0 flex-1 flex-col{% else %}w-full{% endif %}">
+      {% if user.is_authenticated %}
+        {% with ns=request.resolver_match.namespace|default:'' name=request.resolver_match.url_name|default:'' %}
+        <header class="ksms-app-header sticky top-0 z-30 border-b border-blue-300/25 px-4 py-3 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <button type="button" id="mobile-nav-toggle" class="list-none rounded-xl border border-blue-200/35 bg-slate-900/30 px-3 py-2 text-sm font-semibold text-slate-100 lg:hidden" aria-expanded="false" aria-controls="mobile-nav-panel">Menu</button>
+              <div id="mobile-nav-overlay" class="ksms-mobile-overlay hidden lg:hidden"></div>
+              <div id="mobile-nav-panel" class="ksms-mobile-drawer hidden lg:hidden" aria-hidden="true">
+                <div class="flex items-center justify-between border-b border-blue-200/25 px-4 py-3">
+                  <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-100/80">Navigation</p>
+                  <button type="button" id="mobile-nav-close" class="rounded-lg border border-blue-200/30 bg-slate-900/30 px-2 py-1 text-xs font-semibold text-slate-100">Close</button>
+                </div>
+                <div class="space-y-4 overflow-y-auto px-3 py-3">
+                  {% include "components/_nav_links.html" with ns=ns name=name %}
+                  <div class="border-t border-blue-200/25 pt-3">
+                    <a href="{% url 'account_change_password' %}" class="ksms-sidebar-link {% if ns == 'account' and name == 'account_change_password' %}is-active{% endif %}"><span>Password</span></a>
+                    <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+                      {% csrf_token %}
+                      <button type="submit" class="ksms-sidebar-link w-full text-left"><span>Log out</span></button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/80">KSMS Workspace</p>
+                <h1 class="ksms-display text-lg font-bold text-slate-50">{{ user.school.name|default:"School Operations" }}</h1>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <span class="hidden rounded-md border border-blue-200/30 bg-slate-900/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-100 sm:inline-flex">{{ user.get_role_display }}</span>
+              <button class="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-slate-900/35 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-blue-900">
+                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-xs ring-1 ring-white/40">
+                  {{ user.get_full_name|default:user.username|make_list|first|upper }}
+                </span>
+                <span class="hidden pr-2 text-sm font-medium text-slate-100 md:block">{{ user.get_full_name|default:user.username }}</span>
+                <svg class="hidden h-4 w-4 text-blue-200 md:block" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </header>
+        {% endwith %}
+      {% else %}
+        <nav class="ksms-landing-rail">
+          <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+            <a href="{% url 'core:home' %}" class="flex items-center gap-3">
+              <img src="{% static 'img/logo.png' %}" alt="KSMS Logo" class="h-12 w-12 object-contain">
+              <span>
+                <span class="ksms-landing-display block text-sm font-bold text-slate-100">School Management System</span>
+                {% if request.resolver_match.url_name == 'account_login' %}
+                  <span class="ksms-landing-display block text-2xl font-bold leading-none text-slate-50">EduTrack International SMS</span>
+                {% else %}
+                  <span class="ksms-landing-display block text-2xl font-bold leading-none text-slate-50">EduTrack SMS</span>
+                {% endif %}
+              </span>
+            </a>
+            <div class="flex items-center gap-3">
+              {% if request.resolver_match.url_name == 'account_login' %}
+                <a href="{% url 'core:home' %}" class="rounded-lg border border-slate-500 bg-slate-800/65 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700/70">&larr; Back</a>
+              {% else %}
+                <a href="{% url 'account_login' %}" class="rounded-lg border border-slate-600 bg-slate-800/65 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-700/70">Log in</a>
+                <a href="{% url 'account_signup' %}" class="rounded-lg border border-amber-400/55 bg-amber-400/18 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/25">Create account</a>
+              {% endif %}
+            </div>
+          </div>
+        </nav>
+      {% endif %}
+
+
+      <main class="ksms-page-enter {% if user.is_authenticated %}flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8{% elif request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'account_login' %}w-full px-0 py-0{% else %}mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8{% endif %}">
+        {% block content %}{% endblock %}
+      </main>
     </div>
-  {% endif %}
+  </div>
 
-  {% block content %}{% endblock %}
+  <div id="ksms-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-3 py-4" aria-hidden="true">
+    <div data-modal-backdrop class="absolute inset-0 bg-slate-950/30"></div>
+    <div class="relative z-10 w-full max-h-[calc(100vh-3rem)] overflow-y-auto" role="presentation">
+      <div id="ksms-modal-body" role="dialog" aria-modal="true" aria-labelledby="ksms-modal-title" class="mx-auto w-full max-w-6xl"></div>
+    </div>
+  </div>
+
+  <!-- Toast notifications – bottom-right -->
+  <div id="ksms-toast-stack" aria-live="polite" aria-atomic="false"
+       class="fixed bottom-5 right-5 z-[55] flex flex-col gap-3 w-80 max-w-[calc(100vw-2.5rem)]">
+    {% if messages %}
+      {% for message in messages %}
+        {% if "signed in" not in message.message and "signed out" not in message.message %}
+          <div data-banner-item
+               {% if 'success' in message.tags or 'warning' in message.tags %}data-banner-autohide="5000"{% endif %}
+               role="{% if 'success' in message.tags %}status{% else %}alert{% endif %}"
+               aria-live="{% if 'success' in message.tags %}polite{% else %}assertive{% endif %}"
+               class="flex overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200">
+            <span class="w-1.5 shrink-0 {% if 'error' in message.tags %}bg-red-500{% elif 'success' in message.tags %}bg-emerald-500{% elif 'warning' in message.tags %}bg-amber-500{% else %}bg-sky-500{% endif %}"></span>
+            <div class="flex flex-1 gap-3 px-4 py-3.5">
+              <div class="mt-0.5 shrink-0">
+                {% if 'error' in message.tags %}
+                  <svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                {% elif 'success' in message.tags %}
+                  <svg class="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {% elif 'warning' in message.tags %}
+                  <svg class="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                {% else %}
+                  <svg class="h-5 w-5 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>
+                {% endif %}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-900">{% if 'error' in message.tags %}Error{% elif 'success' in message.tags %}Success{% elif 'warning' in message.tags %}Warning{% else %}Notice{% endif %}</p>
+                <p class="mt-0.5 text-sm text-slate-600">{{ message }}</p>
+              </div>
+              <button type="button" data-banner-dismiss
+                      class="shrink-0 self-start rounded-lg p-1 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                      aria-label="Dismiss">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
 
   <script src="https://unpkg.com/htmx.org@2.0.0/dist/htmx.min.js"></script>
+  <script>
+    (function () {
+      // showLoading / hideLoading always query the preserved indicator element
+      // and use a window-scoped timeout so any script run can cancel it.
+      function showLoading() {
+        var el = document.getElementById('global-loading-indicator');
+        if (el) {
+          window._ksmsLoadingTimer = setTimeout(function () {
+            el.setAttribute('data-loading', 'true');
+          }, 150);
+        }
+      }
+
+      function hideLoading() {
+        var el = document.getElementById('global-loading-indicator');
+        if (window._ksmsLoadingTimer) {
+          clearTimeout(window._ksmsLoadingTimer);
+          window._ksmsLoadingTimer = null;
+        }
+        if (el) {
+          el.setAttribute('data-loading', 'false');
+        }
+      }
+
+      function getBannerStack() {
+        return document.getElementById('ksms-toast-stack');
+      }
+
+      function dismissBannerByKey(key) {
+        var stack = getBannerStack();
+        if (!stack || !key) { return; }
+        var existing = stack.querySelector('[data-banner-key="' + key + '"]');
+        if (existing) { existing.remove(); }
+      }
+
+      function showBanner(options) {
+        var stack = getBannerStack();
+        if (!stack) { return; }
+
+        var severity = options && options.severity ? options.severity : 'error';
+        var key = options && options.key ? options.key : '';
+        var persistent = !(options && options.persistent === false);
+        var text = options && options.text ? options.text : 'Something went wrong. Please try again.';
+        var autoHideMs = options && options.autoHideMs ? options.autoHideMs : 5000;
+
+        if (key) {
+          dismissBannerByKey(key);
+        }
+
+        var stripColors = { error: 'bg-red-500', success: 'bg-emerald-500', warning: 'bg-amber-500', info: 'bg-sky-500' };
+        var titles = { error: 'Error', success: 'Success', warning: 'Warning', info: 'Notice' };
+        var icons = {
+          error:   '<svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>',
+          success: '<svg class="h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+          warning: '<svg class="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>',
+          info:    '<svg class="h-5 w-5 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>'
+        };
+
+        var banner = document.createElement('div');
+        banner.setAttribute('data-banner-item', '');
+        if (key) { banner.setAttribute('data-banner-key', key); }
+        banner.setAttribute('role', severity === 'success' ? 'status' : 'alert');
+        banner.setAttribute('aria-live', severity === 'success' ? 'polite' : 'assertive');
+        banner.className = 'flex overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-slate-200';
+
+        var strip = document.createElement('span');
+        strip.className = 'w-1.5 shrink-0 ' + (stripColors[severity] || stripColors.info);
+        banner.appendChild(strip);
+
+        var contentEl = document.createElement('div');
+        contentEl.className = 'flex flex-1 gap-3 px-4 py-3.5';
+
+        var iconWrapper = document.createElement('div');
+        iconWrapper.className = 'mt-0.5 shrink-0';
+        iconWrapper.innerHTML = icons[severity] || icons.info;
+        contentEl.appendChild(iconWrapper);
+
+        var textArea = document.createElement('div');
+        textArea.className = 'min-w-0 flex-1';
+        var titleEl = document.createElement('p');
+        titleEl.className = 'text-sm font-semibold text-slate-900';
+        titleEl.textContent = titles[severity] || titles.info;
+        textArea.appendChild(titleEl);
+        var bodyEl = document.createElement('p');
+        bodyEl.className = 'mt-0.5 text-sm text-slate-600';
+        bodyEl.textContent = text;
+        textArea.appendChild(bodyEl);
+        contentEl.appendChild(textArea);
+
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.setAttribute('data-banner-dismiss', '');
+        closeBtn.className = 'shrink-0 self-start rounded-lg p-1 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-300';
+        closeBtn.setAttribute('aria-label', 'Dismiss this message');
+        closeBtn.innerHTML = '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+        contentEl.appendChild(closeBtn);
+        banner.appendChild(contentEl);
+
+        stack.prepend(banner);
+
+        if (!persistent) {
+          window.setTimeout(function () {
+            if (banner && banner.parentNode) {
+              banner.remove();
+            }
+          }, autoHideMs);
+        }
+      }
+
+      function initBannerAutoDismiss() {
+        var stack = getBannerStack();
+        if (!stack) { return; }
+
+        var banners = stack.querySelectorAll('[data-banner-item][data-banner-autohide]');
+        banners.forEach(function (banner) {
+          if (!(banner instanceof HTMLElement)) { return; }
+          if (banner.dataset.autohideInit === '1') { return; }
+
+          banner.dataset.autohideInit = '1';
+          var timeout = parseInt(banner.getAttribute('data-banner-autohide') || '0', 10);
+          if (!timeout || timeout < 500) {
+            timeout = 4000;
+          }
+
+          window.setTimeout(function () {
+            if (banner && banner.parentNode) {
+              banner.remove();
+            }
+          }, timeout);
+        });
+      }
+
+      function getModalElements() {
+        return {
+          modal: document.getElementById('ksms-modal'),
+          body: document.getElementById('ksms-modal-body')
+        };
+      }
+
+      function openModal() {
+        var elements = getModalElements();
+        if (!elements.modal || !elements.body || !elements.body.innerHTML.trim()) { return; }
+        elements.modal.classList.remove('hidden');
+        elements.modal.classList.add('flex');
+        elements.modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('overflow-hidden');
+
+        var firstField = elements.body.querySelector('input:not([type="hidden"]), select, textarea, button');
+        if (firstField && typeof firstField.focus === 'function') {
+          window.setTimeout(function () {
+            firstField.focus();
+          }, 0);
+        }
+      }
+
+      function closeModal() {
+        var elements = getModalElements();
+        if (!elements.modal || !elements.body) { return; }
+        elements.modal.classList.add('hidden');
+        elements.modal.classList.remove('flex');
+        elements.modal.setAttribute('aria-hidden', 'true');
+        elements.body.innerHTML = '';
+        document.body.classList.remove('overflow-hidden');
+      }
+
+      // ── Mobile nav ───────────────────────────────────────────────────────────
+      // Re-queries elements on every script run so it always finds the current
+      // DOM nodes (body content is replaced on each hx-boost navigation).
+      var mobileNavToggle = document.getElementById('mobile-nav-toggle');
+      var mobileNavClose  = document.getElementById('mobile-nav-close');
+      var mobileNavPanel  = document.getElementById('mobile-nav-panel');
+      var mobileNavOverlay = document.getElementById('mobile-nav-overlay');
+
+      function openMobileNav() {
+        if (!mobileNavPanel || !mobileNavOverlay || !mobileNavToggle) { return; }
+        mobileNavPanel.classList.remove('hidden');
+        mobileNavOverlay.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        mobileNavToggle.setAttribute('aria-expanded', 'true');
+        mobileNavPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeMobileNav() {
+        if (!mobileNavPanel || !mobileNavOverlay || !mobileNavToggle) { return; }
+        mobileNavPanel.classList.add('hidden');
+        mobileNavOverlay.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        mobileNavToggle.setAttribute('aria-expanded', 'false');
+        mobileNavPanel.setAttribute('aria-hidden', 'true');
+      }
+
+      if (mobileNavToggle && mobileNavPanel && mobileNavOverlay) {
+        mobileNavToggle.addEventListener('click', function () {
+          if (mobileNavToggle.getAttribute('aria-expanded') === 'true') {
+            closeMobileNav();
+          } else {
+            openMobileNav();
+          }
+        });
+      }
+      if (mobileNavClose)   { mobileNavClose.addEventListener('click', closeMobileNav); }
+      if (mobileNavOverlay) { mobileNavOverlay.addEventListener('click', closeMobileNav); }
+      if (mobileNavPanel) {
+        mobileNavPanel.addEventListener('click', function (e) {
+          if (e.target instanceof HTMLAnchorElement) { closeMobileNav(); }
+        });
+      }
+
+      initBannerAutoDismiss();
+
+      // ── Document-level listeners ──────────────────────────────────────────────
+      // Guarded by window._ksmsListeners so they are attached exactly once even
+      // when the body is replaced repeatedly by hx-boost navigation.
+      if (!window._ksmsListeners) {
+        window._ksmsListeners = true;
+
+        // Keep document height stable during full-body hx-boost swaps to prevent scrollbar flicker
+        document.addEventListener('htmx:beforeSwap', function (e) {
+          if (e.detail && e.detail.target === document.body) {
+            document.documentElement.style.minHeight = document.documentElement.scrollHeight + 'px';
+          }
+        });
+
+        // Loading indicator (hx-preserve keeps the indicator element alive)
+        document.addEventListener('htmx:beforeRequest', showLoading);
+        document.addEventListener('htmx:afterRequest', function (e) {
+          hideLoading();
+          var xhr = e.detail && e.detail.xhr ? e.detail.xhr : null;
+          if (xhr && xhr.status >= 200 && xhr.status < 400) {
+            dismissBannerByKey('ksms-server-unavailable');
+            dismissBannerByKey('ksms-connection-error');
+            if (navigator.onLine) {
+              dismissBannerByKey('ksms-offline');
+            }
+          }
+        });
+        document.addEventListener('htmx:sendError', function () {
+          hideLoading();
+          showBanner({
+            key: 'ksms-connection-error',
+            severity: 'error',
+            persistent: true,
+            text: 'We could not reach the server. Check your internet connection and try again.'
+          });
+        });
+        document.addEventListener('htmx:responseError', function (e) {
+          hideLoading();
+          var status = e.detail && e.detail.xhr ? e.detail.xhr.status : 0;
+
+          if (status >= 500) {
+            showBanner({
+              key: 'ksms-server-unavailable',
+              severity: 'error',
+              persistent: true,
+              text: 'The server is temporarily unavailable. Please wait a moment and retry.'
+            });
+            return;
+          }
+
+          if (status === 0) {
+            showBanner({
+              key: 'ksms-connection-error',
+              severity: 'error',
+              persistent: true,
+              text: 'We could not reach the server. Check your internet connection and try again.'
+            });
+          }
+        });
+        document.addEventListener('htmx:abort',         hideLoading);
+
+        window.addEventListener('offline', function () {
+          showBanner({
+            key: 'ksms-offline',
+            severity: 'error',
+            persistent: true,
+            text: 'You are offline. Actions may fail until your connection is restored.'
+          });
+        });
+
+        window.addEventListener('online', function () {
+          dismissBannerByKey('ksms-offline');
+          dismissBannerByKey('ksms-connection-error');
+          showBanner({
+            key: 'ksms-online',
+            severity: 'success',
+            persistent: false,
+            autoHideMs: 4000,
+            text: 'Connection restored. You can continue working.'
+          });
+        });
+
+        document.addEventListener('click', function (event) {
+          var target = event.target;
+          if (!(target instanceof HTMLElement)) { return; }
+          if (!target.hasAttribute('data-banner-dismiss')) { return; }
+
+          var banner = target.closest('[data-banner-item]');
+          if (banner) {
+            banner.remove();
+          }
+        });
+
+        // Re-run banner auto-dismiss after each hx-boost body swap
+        document.addEventListener('htmx:afterSettle', function (e) {
+          if (e.detail && e.detail.target === document.body) {
+            document.documentElement.style.minHeight = '';
+            initBannerAutoDismiss();
+          }
+
+          if (e.detail && e.detail.target && e.detail.target.id === 'ksms-modal-body') {
+            openModal();
+          }
+        });
+
+        document.addEventListener('htmx:beforeSwap', function (e) {
+          if (e.detail && e.detail.target && e.detail.target.id === 'ksms-modal-body' && e.detail.xhr && e.detail.xhr.status >= 200 && e.detail.xhr.status < 400) {
+            openModal();
+          }
+        });
+
+        document.addEventListener('click', function (event) {
+          var target = event.target;
+          if (!(target instanceof HTMLElement)) { return; }
+
+          if (target.hasAttribute('data-modal-close') || target.hasAttribute('data-modal-backdrop')) {
+            closeModal();
+            return;
+          }
+
+          if (target.id === 'ksms-modal') {
+            closeModal();
+          }
+        });
+
+        // Confirmation dialogs on forms with data-confirm
+        document.addEventListener('submit', function (event) {
+          var form = event.target;
+          if (!(form instanceof HTMLFormElement)) { return; }
+          var message = form.getAttribute('data-confirm');
+          if (message && !window.confirm(message)) {
+            event.preventDefault();
+            return;
+          }
+          showLoading();
+        }, true);
+
+        // Hide bar when bfcache restores a page
+        window.addEventListener('pageshow', hideLoading);
+
+        // Escape closes mobile nav
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            var panel = document.getElementById('mobile-nav-panel');
+            var overlay = document.getElementById('mobile-nav-overlay');
+            var toggle  = document.getElementById('mobile-nav-toggle');
+            if (panel && !panel.classList.contains('hidden')) {
+              if (panel)   { panel.classList.add('hidden'); panel.setAttribute('aria-hidden', 'true'); }
+              if (overlay) { overlay.classList.add('hidden'); }
+              if (toggle)  { toggle.setAttribute('aria-expanded', 'false'); }
+              document.body.classList.remove('overflow-hidden');
+            }
+
+            var modal = document.getElementById('ksms-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+              closeModal();
+            }
+          }
+        });
+
+        // Service worker
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker.register('{% url "core:service-worker" %}').catch(function () {
+              // Intentionally silent; app works without service worker.
+            });
+          });
+        }
+      }
+    })();
+  </script>
   {% block extra_scripts %}{% endblock %}
+
+  {% if not debug %}
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+  {% endif %}
 </body>
 </html>
