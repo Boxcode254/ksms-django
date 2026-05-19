@@ -1,24 +1,7 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "phases": {
-        "install": {
-          "aptPkgs": ["libmagic1", "libpq-dev"],
-          "cmds": [
-            "python -m venv /opt/venv",
-            "/opt/venv/bin/pip install -r requirements-prod.txt"
-          ]
-        },
-        "build": {
-          "cmds": [
-            "/opt/venv/bin/python manage.py collectstatic --noinput",
-            "/opt/venv/bin/python manage.py tailwind build 2>/dev/null || true"
-          ]
-        }
-      }
-    }
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "startCommand": "gunicorn ksms.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --access-logfile - --error-logfile -",
