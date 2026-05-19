@@ -1,4 +1,4 @@
-# KSMS Production Dockerfile v2
+# KSMS Production Dockerfile v3
 FROM python:3.11.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -21,10 +21,11 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Create runtime directories
-RUN mkdir -p /app/logs /app/media /app/staticfiles
+# Create runtime directories and make entrypoint executable
+RUN mkdir -p /app/logs /app/media /app/staticfiles \
+    && chmod +x entrypoint.sh
 
 EXPOSE 8000
 
-# Start gunicorn
-CMD ["sh", "-c", "echo '=== KSMS Starting ===' && echo 'PORT=$PORT' && gunicorn ksms.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --access-logfile - --error-logfile - --timeout 120"]
+# Use entrypoint script
+ENTRYPOINT ["./entrypoint.sh"]
