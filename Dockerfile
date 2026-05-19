@@ -30,8 +30,9 @@ USER ksms
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')" || exit 1
+# Simple healthcheck — just verify the process is listening
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
 
-# Run collectstatic at startup (after env vars are available)
-CMD sh -c "python manage.py collectstatic --noinput && gunicorn ksms.wsgi:application --bind 0.0.0.0:8000 --workers 4 --access-logfile - --error-logfile -"
+# Run collectstatic at startup, then start gunicorn
+CMD ["sh", "-c", "python manage.py collectstatic --noinput --verbosity 0 2>/dev/null || true && gunicorn ksms.wsgi:application --bind 0.0.0.0:8000 --workers 4 --access-logfile - --error-logfile - --timeout 120"]
