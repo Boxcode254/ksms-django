@@ -15,7 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements-prod.txt ./
+# Copy requirements first for better caching
+COPY requirements.txt requirements-prod.txt ./
 RUN pip install -r requirements-prod.txt --no-cache-dir
 
 COPY . .
