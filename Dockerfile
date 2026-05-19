@@ -11,5 +11,5 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles
 
 EXPOSE 8000
 
-# TEMP: Test server to verify container works
-CMD ["python", "test_server.py"]
+# Start gunicorn using PORT env var
+CMD ["sh", "-c", "gunicorn ksms.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --access-logfile - --error-logfile - --timeout 120"]
