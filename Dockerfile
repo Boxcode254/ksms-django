@@ -1,4 +1,4 @@
-# KSMS Production Dockerfile - rebuilt $(date)
+# KSMS Production Dockerfile - $(date)
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
@@ -13,4 +13,4 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles
 EXPOSE 8000
 
 # Start gunicorn using PORT env var
-CMD ["sh", "-c", "gunicorn ksms.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --access-logfile - --error-logfile - --timeout 120"]
+CMD ["sh", "-c", "echo 'Starting KSMS Django on port ${PORT:-8000}' && gunicorn ksms.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --access-logfile - --error-logfile - --timeout 120"]
