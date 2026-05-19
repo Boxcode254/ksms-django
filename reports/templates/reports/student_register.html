@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}KSMS | {{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-xl font-black text-slate-950">{{ page_title }}</h1>
+    <div class="flex gap-2">
+      <a href="{% url 'reports:students-csv' %}?{{ request.GET.urlencode }}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Export CSV</a>
+      <a href="{% url 'reports:students-pdf' %}?{{ request.GET.urlencode }}" class="rounded-full bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Export PDF</a>
+      <button onclick="window.print()" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Print</button>
+    </div>
+  </div>
+
+  {# Filters #}
+  <form method="get" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Search student</label>
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Name or admission #"
+          class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Term</label>
+        <select name="term" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+          <option value="">All terms</option>
+          {% for t in terms %}
+            <option value="{{ t.pk }}" {% if request.GET.term == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.get_name_display }} — {{ t.academic_year.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Class</label>
+        <select name="class_section" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+          <option value="">All classes</option>
+          {% for cs in class_sections %}
+            <option value="{{ cs.pk }}" {% if request.GET.class_section == cs.pk|stringformat:"s" %}selected{% endif %}>{{ cs.display_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Status</label>
+        <select name="status" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+          {% for val, lbl in status_choices %}
+            <option value="{{ val }}" {% if request.GET.status == val or not request.GET.status and val == 'active' %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="mt-4">
+      <button type="submit" class="rounded-xl bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-700">Apply filters</button>
+    </div>
+  </form>
+
+  <p class="text-sm text-slate-500">{{ total }} student{{ total|pluralize }} found</p>
+
+  {# Table #}
+  <div class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-slate-700">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">#</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">Admission #</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">Name</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">Class</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">Term</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">Status</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-500">Start date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for enr in enrollments %}
+            <tr class="border-b border-slate-50 hover:bg-slate-50">
+              <td class="px-5 py-3 text-slate-400">{{ forloop.counter0|add:page_obj.start_index }}</td>
+              <td class="px-5 py-3 font-mono text-xs text-slate-600">{{ enr.student.admission_number }}</td>
+              <td class="px-5 py-3 font-medium">{{ enr.student.user.get_full_name|default:enr.student.user.username }}</td>
+              <td class="px-5 py-3">{{ enr.class_section.display_name }}</td>
+              <td class="px-5 py-3">{{ enr.term.get_name_display }}</td>
+              <td class="px-5 py-3">
+                <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold
+                  {% if enr.status == 'active' %}bg-emerald-100 text-emerald-700
+                  {% elif enr.status == 'transferred' or enr.status == 'withdrawn' %}bg-red-100 text-red-700
+                  {% else %}bg-slate-100 text-slate-600{% endif %}">
+                  {{ enr.get_status_display }}
+                </span>
+              </td>
+              <td class="px-5 py-3 text-xs text-slate-500">{{ enr.start_date|date:"j M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="px-5 py-8 text-center text-slate-400">No students match your filters.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+      <div class="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+        <p class="text-sm text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+        <div class="flex gap-2 text-sm">
+          {% if page_obj.has_previous %}
+            <a href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}" class="rounded-lg border border-slate-300 px-3 py-1 hover:bg-slate-50">Previous</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}" class="rounded-lg border border-slate-300 px-3 py-1 hover:bg-slate-50">Next</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

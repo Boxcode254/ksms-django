@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Delete CBC Strand{% endblock %}
+
+{% block content %}
+<section class="mx-auto max-w-xl space-y-6">
+  <h1 class="text-2xl font-black text-slate-950">Delete strand</h1>
+  <p class="text-sm text-slate-600">Are you sure you want to delete <strong>{{ object }}</strong>? Sub-strands and any historical assessments referencing this strand will become unattached.</p>
+  <form method="post" class="flex justify-end gap-3">
+    {% csrf_token %}
+    <a href="{% url 'cbc:strand-list' %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white">Cancel</a>
+    <button type="submit" class="rounded-full bg-red-700 px-5 py-2 text-sm font-semibold text-white hover:bg-red-600">Delete</button>
+  </form>
+</section>
+{% endblock %}

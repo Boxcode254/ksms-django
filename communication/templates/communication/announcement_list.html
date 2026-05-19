@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Announcements{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <nav class="ksms-breadcrumbs mb-2" aria-label="Breadcrumb">
+          <a href="{% url 'core:dashboard' %}">Dashboard</a>
+          <span class="sep" aria-hidden="true">/</span>
+          <span class="current" aria-current="page">Announcements</span>
+        </nav>
+        <h1 class="text-xl font-bold text-slate-900">{{ page_title }}</h1>
+        <p class="mt-1 text-sm text-slate-500">School-wide announcements targeting students, parents, and staff.</p>
+      </div>
+      {% if can_create %}
+        <a href="{% url 'communication:announcement-create' %}"
+           class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1a4989] text-white shadow-sm hover:bg-[#14366b] transition-colors"
+           title="New announcement">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        </a>
+      {% endif %}
+    </div>
+  </section>
+
+  {# Filter form #}
+  <form method="get"
+        hx-get="{% url 'communication:announcement-list' %}"
+        hx-target="#announcement-results"
+        hx-push-url="true"
+        hx-trigger="submit, input from:input[name='q'] delay:300ms, search from:input[name='q'], change from:select"
+        class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1.5">Search</label>
+        {{ filter_form.q }}
+      </div>
+      {% if show_audience_filter %}
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1.5">Audience</label>
+        {{ filter_form.audience }}
+      </div>
+      {% endif %}
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1.5">Status</label>
+        {{ filter_form.is_active }}
+      </div>
+      {% if request.user.is_superuser %}
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1.5">School</label>
+        {{ filter_form.school }}
+      </div>
+      {% endif %}
+    </div>
+  </form>
+
+  {# Results #}
+  <div id="announcement-results">
+    {% include "communication/partials/announcement_results.html" %}
+  </div>
+
+</div>
+{% endblock %}

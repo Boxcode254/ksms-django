@@ -1,21 +1,30 @@
 # Core
-Django>=5.1,<5.2
-python-decouple>=3.8
+Django==5.1.15
+python-decouple==3.8
 
 # Database
-psycopg2-binary>=2.9
+psycopg2-binary==2.9.12
 
 # Authentication
-django-allauth>=0.63
+django-allauth==65.16.1
 
 # HTMX
-django-htmx>=1.19
+django-htmx==1.27.0
 
 # Tailwind
-django-tailwind>=3.8
+django-tailwind==4.4.2
 
 # Media
-Pillow>=10.3
+Pillow==12.2.0
 
 # Utilities
-whitenoise>=6.7
+whitenoise==6.12.0
+cryptography==48.0.0
+reportlab==4.5.0
+weasyprint==68.1
+requests==2.33.1
+celery==5.6.3
+redis==7.4.0
+
+# File type validation
+python-magic==0.4.27

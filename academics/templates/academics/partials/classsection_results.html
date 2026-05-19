@@ -1,0 +1,83 @@
+{% load academics_tags %}
+<div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-100 text-sm">
+      <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <tr>
+          <th scope="col" class="px-6 py-4 font-semibold">Grade</th>
+          <th scope="col" class="px-6 py-4 font-semibold">Stream</th>
+          <th scope="col" class="px-6 py-4 font-semibold">Room</th>
+          <th scope="col" class="px-6 py-4 font-semibold">Class Teacher</th>
+          <th scope="col" class="px-6 py-4 font-semibold">Capacity</th>
+          <th scope="col" class="px-6 py-4 text-right font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 bg-white">
+        {% for section in sections %}
+          <tr class="hover:bg-slate-50/60 transition-colors duration-150">
+            <td class="px-6 py-4 font-semibold text-slate-900">{{ section.grade_level }}</td>
+            <td class="px-6 py-4 text-slate-700">{{ section.stream|default:"—" }}</td>
+            <td class="px-6 py-4 text-slate-600">{{ section.room_name|default:"—" }}</td>
+            <td class="px-6 py-4 text-slate-700">
+              {% if section.homeroom_teacher %}
+                {{ section.homeroom_teacher.user.get_full_name|default:section.homeroom_teacher.user.username }}
+              {% else %}
+                <span class="text-slate-400 italic">Not assigned</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4">
+              <span class="font-semibold text-slate-900">{{ section.active_enrollment_count }}</span>
+              <span class="text-slate-400"> / {{ section.capacity|default:"—" }}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right">
+              <div class="flex items-center justify-end gap-2">
+                <a href="{% url 'cbc:report-bulk' %}" class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center cursor-not-allowed" title="Bulk generate (coming soon)">
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </a>
+                {% if perms.academics.change_classsection %}
+                  <a href="{% url 'academics:classsection-update' section.pk %}" hx-boost="false" hx-get="{% url 'academics:classsection-update' section.pk %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="w-8 h-8 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 flex items-center justify-center transition-all" title="Edit class section">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-sm text-slate-500">
+              <div class="flex flex-col items-center justify-center gap-2">
+                <svg class="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span>No class sections match the current filters.</span>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+    <div class="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-5">
+      <p class="text-xs text-slate-400">
+        Page <span class="font-semibold text-slate-600">{{ page_obj.number }}</span> of <span class="font-semibold text-slate-600">{{ page_obj.paginator.num_pages }}</span>
+      </p>
+      <div class="flex gap-2 text-sm">
+        {% if page_obj.has_previous %}
+          <a href="?{% query_update request.GET page=page_obj.previous_page_number %}" hx-get="?{% query_update request.GET page=page_obj.previous_page_number %}" hx-target="#classsection-results" hx-push-url="true" class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          </a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?{% query_update request.GET page=page_obj.next_page_number %}" hx-get="?{% query_update request.GET page=page_obj.next_page_number %}" hx-target="#classsection-results" hx-push-url="true" class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>

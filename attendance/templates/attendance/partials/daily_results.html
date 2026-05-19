@@ -1,0 +1,41 @@
+{% load attendance_tags %}
+<div>
+  <div class="ksms-list-grid">
+    {% for record in records %}
+      <article class="ksms-item-card flex flex-col gap-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="truncate font-semibold text-slate-900">{{ record.student.user.get_full_name|default:record.student.user.username }}</p>
+            <p class="mt-0.5 text-xs text-slate-500">{{ record.student.admission_number }}</p>
+          </div>
+          <span class="shrink-0 ksms-badge {% if record.status == 'present' %}ksms-badge-success{% elif record.status == 'absent' %}ksms-badge-danger{% elif record.status == 'late' %}ksms-badge-warning{% else %}ksms-badge-info{% endif %}">{{ record.get_status_display }}</span>
+        </div>
+        <div class="space-y-1 text-xs text-slate-600">
+          <p class="font-mono font-semibold text-slate-900">{{ record.attendance_date|date:"j M Y" }}</p>
+          <p>{{ record.class_section.display_name }} · {{ record.enrollment.term.get_name_display }}</p>
+          <p class="text-slate-400">Recorded by {{ record.recorded_by.get_full_name|default:record.recorded_by.username|default:"System" }}</p>
+        </div>
+        {% if perms.attendance.change_dailyattendance %}
+          <div class="mt-auto border-t border-slate-100 pt-3">
+            <a href="{% url 'attendance:daily-update' record.pk %}" class="ksms-btn ksms-btn-soft">Edit</a>
+          </div>
+        {% endif %}
+      </article>
+    {% empty %}
+      <p class="col-span-full rounded-2xl bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">No daily attendance records match the current filters.</p>
+    {% endfor %}
+  </div>
+  {% if is_paginated %}
+    <div class="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600">
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="flex gap-3">
+        {% if page_obj.has_previous %}
+          <a href="{% update_query page=page_obj.previous_page_number %}" hx-get="{% update_query page=page_obj.previous_page_number %}" hx-target="#daily-results" hx-push-url="true" class="ksms-btn ksms-btn-soft">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="{% update_query page=page_obj.next_page_number %}" hx-get="{% update_query page=page_obj.next_page_number %}" hx-target="#daily-results" hx-push-url="true" class="ksms-btn ksms-btn-soft">Next</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>

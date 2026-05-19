@@ -1,0 +1,217 @@
+{% load students_tags %}
+
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-100 text-sm">
+    <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <tr>
+        <th scope="col" class="px-6 py-4 font-semibold">Info</th>
+        {% if request.user.is_superuser %}
+          <th scope="col" class="px-6 py-4 font-semibold">School</th>
+        {% endif %}
+        <th scope="col" class="px-6 py-4 font-semibold">Students</th>
+        <th scope="col" class="px-6 py-4 font-semibold">Occupation & ID</th>
+        <th scope="col" class="px-6 py-4 text-right font-semibold">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 bg-white">
+      {% for guardian in guardians %}
+        <tr class="hover:bg-purple-50/40 transition-colors duration-150">
+          <!-- Info Column: Rose Initials Avatar + Full Name + Email & Phone -->
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              <!-- Custom Rose Initials Avatar Fallback -->
+              <div class="h-10 w-10 flex-shrink-0 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center font-bold text-sm tracking-wide shadow-sm">
+                {% if guardian.user.first_name %}
+                  {{ guardian.user.first_name|slice:":1"|upper }}{{ guardian.user.last_name|slice:":1"|upper }}
+                {% else %}
+                  {{ guardian.user.username|slice:":2"|upper }}
+                {% endif %}
+              </div>
+              <div>
+                <span class="font-semibold text-slate-900 block leading-tight">
+                  {{ guardian.user.get_full_name|default:guardian.user.username }}
+                </span>
+                <span class="text-xs text-slate-400 block mt-0.5">
+                  {{ guardian.user.email|default:"No email" }}{% if guardian.user.phone %} · {{ guardian.user.phone }}{% endif %}
+                </span>
+              </div>
+            </div>
+          </td>
+
+          <!-- School Column (Superuser only) -->
+          {% if request.user.is_superuser %}
+            <td class="px-6 py-4 whitespace-nowrap text-slate-600 font-medium">
+              {{ guardian.school.name }}
+            </td>
+          {% endif %}
+
+          <!-- Students Column -->
+          <td class="px-6 py-4">
+            <div class="space-y-1">
+              {% for relationship in guardian.student_relationships.all %}
+                <div class="text-xs text-slate-600 leading-tight">
+                  <span class="font-medium text-slate-700">{{ relationship.student.user.get_full_name|default:relationship.student.user.username }}</span>
+                  <span class="text-[10px] bg-slate-50 text-slate-500 px-1.5 py-0.5 rounded ml-1 border border-slate-100 font-semibold uppercase tracking-wider">
+                    {{ relationship.get_relationship_display }}
+                  </span>
+                  {% if relationship.is_primary_contact %}
+                    <span class="text-[10px] bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded border border-sky-100 font-semibold uppercase tracking-wider ml-0.5">Primary</span>
+                  {% endif %}
+                </div>
+              {% empty %}
+                <span class="text-xs text-slate-400 italic">No linked students</span>
+              {% endfor %}
+            </div>
+          </td>
+
+          <!-- Occupation & ID Column -->
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="font-medium text-slate-700 block text-xs leading-none">{{ guardian.occupation|default:"Not specified" }}</span>
+            <span class="text-[11px] text-slate-400 block mt-1">ID: {{ guardian.national_id|mask_national_id|default:"Not set" }}</span>
+          </td>
+
+          <!-- Actions Column -->
+          <td class="px-6 py-4 whitespace-nowrap text-right">
+            <div class="flex items-center justify-end gap-2">
+              <!-- View Detail Action -->
+              <a href="{% url 'students:guardian-detail' guardian.pk %}" 
+                 class="w-8 h-8 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 flex items-center justify-center transition-all" 
+                 title="View Guardian Details">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </a>
+
+              <!-- Edit Action -->
+              {% if perms.students.change_guardian %}
+                <a href="{% url 'students:guardian-update' guardian.pk %}" 
+                   class="w-8 h-8 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 flex items-center justify-center transition-all" 
+                   title="Edit Guardian Profile">
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </a>
+              {% endif %}
+
+              <!-- Delete Action -->
+              {% if perms.students.delete_guardian %}
+                <a href="/admin/students/guardian/{{ guardian.pk }}/delete/" 
+                   class="w-8 h-8 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 flex items-center justify-center transition-all" 
+                   title="Delete Guardian Record">
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="{% if request.user.is_superuser %}5{% else %}4{% endif %}" class="px-6 py-12 text-center text-sm text-slate-500">
+            <div class="flex flex-col items-center justify-center gap-2">
+              <svg class="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>No guardian records match the current filters.</span>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modern Bottom Pagination Footer -->
+{% if is_paginated %}
+  <div class="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-5">
+    <div class="flex flex-1 justify-between sm:hidden">
+      {% if page_obj.has_previous %}
+        <a href="{% update_query page=page_obj.previous_page_number %}" 
+           hx-get="{% update_query page=page_obj.previous_page_number %}" 
+           hx-target="#guardian-results" 
+           hx-push-url="true" 
+           class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+          Previous
+        </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+        <a href="{% update_query page=page_obj.next_page_number %}" 
+           hx-get="{% update_query page=page_obj.next_page_number %}" 
+           hx-target="#guardian-results" 
+           hx-push-url="true" 
+           class="relative ml-3 inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+          Next
+        </a>
+      {% endif %}
+    </div>
+    
+    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+      <div class="flex items-center gap-3">
+        <p class="text-xs text-slate-400">
+          Showing page <span class="font-semibold text-slate-600">{{ page_obj.number }}</span> of <span class="font-semibold text-slate-600">{{ page_obj.paginator.num_pages }}</span> pages
+        </p>
+        {% if page_obj.paginator.num_pages > 10 %}
+        <form method="get" class="flex items-center gap-1" hx-boost="false">
+          {% for key, value in request.GET.items %}
+            {% if key != 'page' %}
+              <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endif %}
+          {% endfor %}
+          <label for="jump-page-grd" class="text-xs text-slate-500">Go:</label>
+          <input type="number" id="jump-page-grd" name="page" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}"
+                 class="w-14 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 hx-on::keydown="if(event.key==='Enter'){this.form.submit();}">
+          <button type="submit" class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors">Go</button>
+        </form>
+        {% endif %}
+      </div>
+      <div>
+        <nav class="isolate inline-flex -space-x-px rounded-xl shadow-sm gap-1" aria-label="Pagination">
+          {% if page_obj.has_previous %}
+            <a href="{% update_query page=page_obj.previous_page_number %}" 
+               hx-get="{% update_query page=page_obj.previous_page_number %}" 
+               hx-target="#guardian-results" 
+               hx-push-url="true" 
+               class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+               title="Previous Page">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </a>
+          {% endif %}
+
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+              <span class="relative z-10 inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                {{ num }}
+              </span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+              <a href="{% update_query page=num %}" 
+                 hx-get="{% update_query page=num %}" 
+                 hx-target="#guardian-results" 
+                 hx-push-url="true" 
+                 class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+                {{ num }}
+              </a>
+            {% endif %}
+          {% endfor %}
+
+          {% if page_obj.has_next %}
+            <a href="{% update_query page=page_obj.next_page_number %}" 
+               hx-get="{% update_query page=page_obj.next_page_number %}" 
+               hx-target="#guardian-results" 
+               hx-push-url="true" 
+               class="relative inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+               title="Next Page">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          {% endif %}
+        </nav>
+      </div>
+    </div>
+  </div>
+{% endif %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Report Card — {{ student.user.get_full_name|default:student.user.username }}{% endblock %}
+
+{% block content %}
+<div class="no-print mb-4 flex gap-2">
+  <button onclick="window.print()" class="ksms-btn ksms-btn-primary">Print / Save as PDF</button>
+  <a href="javascript:history.back()" class="ksms-btn ksms-btn-soft">Back</a>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Print-friendly report card container                                #}
+{# ------------------------------------------------------------------ #}
+<div class="report-card mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/60 print:shadow-none print:border-0 print:rounded-none">
+
+  {# School header #}
+  <div class="text-center border-b border-slate-200 pb-6 mb-6">
+    <h1 class="text-2xl font-black text-slate-950 tracking-tight">Kenya School Management System</h1>
+    <p class="text-sm text-slate-500 mt-1">Student Academic Report Card</p>
+    <p class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-400">KNEC Readiness Format</p>
+    {% if enrollment %}
+      <p class="mt-2 text-sm font-semibold text-slate-700">
+        {{ enrollment.term.get_name_display }}, {{ enrollment.academic_year.name }}
+      </p>
+    {% endif %}
+  </div>
+
+  {# Student info #}
+  <div class="grid gap-4 sm:grid-cols-2 mb-6">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Student name</p>
+      <p class="mt-1 text-base font-bold text-slate-900">{{ student.user.get_full_name|default:student.user.username }}</p>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Admission number</p>
+      <p class="mt-1 text-base font-mono text-slate-700">{{ student.admission_number }}</p>
+    </div>
+    {% if enrollment %}
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Class</p>
+        <p class="mt-1 text-base font-bold text-slate-900">{{ enrollment.class_section.display_name }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Academic year</p>
+        <p class="mt-1 text-base text-slate-700">{{ enrollment.academic_year.name }}</p>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Academic performance table #}
+  <h2 class="text-sm font-bold uppercase tracking-widest text-slate-600 mb-3">Academic Performance</h2>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm text-slate-700 mb-6">
+    <thead>
+      <tr class="border-b-2 border-slate-200 text-xs text-slate-500">
+        <th class="py-2 pr-4 text-left font-semibold">Subject</th>
+        <th class="py-2 pr-3 text-right font-semibold">CAT</th>
+        <th class="py-2 pr-3 text-right font-semibold">Mid-Term</th>
+        <th class="py-2 pr-3 text-right font-semibold">End-Term</th>
+        <th class="py-2 pr-3 text-right font-semibold">Mock</th>
+        <th class="py-2 pr-3 text-right font-semibold">Weighted</th>
+        <th class="py-2 pr-3 text-center font-semibold">Grade</th>
+        <th class="py-2 pr-4 text-center font-semibold">Points</th>
+        <th class="py-2 text-left font-semibold">Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in subject_rows %}
+        <tr class="border-b border-slate-100">
+          <td class="py-2 pr-4">{{ row.subject.name }}</td>
+          <td class="py-2 pr-3 text-right">{{ row.scores.cat|default:"—" }}</td>
+          <td class="py-2 pr-3 text-right">{{ row.scores.mid_term|default:"—" }}</td>
+          <td class="py-2 pr-3 text-right">{{ row.scores.end_term|default:"—" }}</td>
+          <td class="py-2 pr-3 text-right">{{ row.scores.mock|default:"—" }}</td>
+          <td class="py-2 pr-3 text-right font-semibold">{{ row.weighted_score|default:"—" }}</td>
+          <td class="py-2 pr-3 text-center">
+            {% if row.grade %}
+              <span class="ksms-badge ksms-badge-grade">{{ row.grade }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="py-2 pr-4 text-center">{{ row.points|default:"—" }}</td>
+          <td class="py-2 text-xs text-slate-400">{{ row.remarks|default:"" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="9" class="py-4 text-center text-slate-400">No grades recorded.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="mb-6 grid gap-4 sm:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Mean points</p>
+      <p class="mt-1 text-2xl font-black text-slate-900">{{ mean_points|default:"—" }}</p>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4">
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Mean grade</p>
+      <p class="mt-1 text-2xl font-black text-slate-900">{{ mean_grade|default:"—" }}</p>
+    </div>
+  </div>
+
+  {# Attendance summary #}
+  <h2 class="text-sm font-bold uppercase tracking-widest text-slate-600 mb-3">Attendance Summary</h2>
+  <div class="rounded-2xl bg-slate-50 px-5 py-4 flex flex-wrap gap-8">
+    <div>
+      <p class="text-xs text-slate-500">Total school days</p>
+      <p class="mt-1 text-xl font-black text-slate-900">{{ total_attendance }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-slate-500">Days present</p>
+      <p class="mt-1 text-xl font-black text-emerald-600">{{ present_attendance }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-slate-500">Attendance rate</p>
+      <p class="mt-1 text-xl font-black {% if attendance_pct and attendance_pct >= 90 %}text-emerald-600{% elif attendance_pct and attendance_pct >= 75 %}text-amber-600{% else %}text-red-600{% endif %}">
+        {% if attendance_pct %}{{ attendance_pct }}%{% else %}—{% endif %}
+      </p>
+    </div>
+  </div>
+
+  {# Footer #}
+  <div class="mt-8 border-t border-slate-200 pt-4 text-xs text-slate-400 text-center">
+    Generated by KSMS &mdash; official school record
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-2">
+    <div class="rounded-2xl border border-slate-200 p-4">
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">School stamp</p>
+      <div class="mt-3 flex h-28 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50">
+        {% if school.stamp_image %}
+          <img src="{{ school.stamp_image.url }}" alt="School stamp" class="max-h-24 w-auto object-contain" />
+        {% else %}
+          <span class="text-xs text-slate-400">Official school stamp area</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 p-4">
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Class teacher signature</p>
+      <div class="mt-10 border-b border-slate-400"></div>
+      <p class="mt-2 text-xs text-slate-400">Sign and date</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  @media print {
+    nav, header, footer, .no-print { display: none !important; }
+    body { background: white !important; }
+    .report-card { box-shadow: none !important; border: none !important; border-radius: 0 !important; max-width: 100% !important; padding: 0 !important; }
+    .overflow-x-auto { overflow-x: visible !important; }
+  }
+</style>
+{% endblock %}

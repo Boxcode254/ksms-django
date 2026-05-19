@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}KSMS | {{ student.admission_number }}{% endblock %}
+
+{% block content %}
+<nav class="ksms-breadcrumbs mb-4" aria-label="Breadcrumb">
+  <a href="{% url 'students:student-list' %}">Students</a>
+  <span class="sep" aria-hidden="true">/</span>
+  <span class="current" aria-current="page">{{ student.user.get_full_name|default:student.user.username }}</span>
+</nav>
+<section class="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
+  <div class="space-y-6">
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Student profile</p>
+          <h1 class="mt-2 text-3xl font-black text-slate-950">{{ student.user.get_full_name|default:student.user.username }}</h1>
+          <p class="mt-2 text-sm leading-7 text-slate-600">Admission number {{ student.admission_number }} · {{ student.school.name }}</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          {% if user.is_admin_role or user.is_teacher_role %}
+            <a href="{% url 'cbc:student-history' student.pk %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">CBC history</a>
+            <a href="{% url 'cbc:report-create' %}?student={{ student.pk }}" class="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600">Generate CBC report</a>
+          {% endif %}
+          {% if perms.students.change_student %}
+            <a href="{% url 'students:student-update' student.pk %}" hx-boost="false" hx-get="{% url 'students:student-update' student.pk %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Edit student</a>
+          {% endif %}
+          <a href="{% url 'students:student-list' %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Back to students</a>
+        </div>
+      </div>
+
+      <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</p>
+          <p class="mt-2 text-sm font-semibold text-slate-900">{{ student.get_status_display }}</p>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Email</p>
+          <p class="mt-2 text-sm font-semibold text-slate-900">{{ student.user.email }}</p>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</p>
+          <p class="mt-2 text-sm font-semibold text-slate-900">{{ student.user.phone|default:"Not set" }}</p>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Admission date</p>
+          <p class="mt-2 text-sm font-semibold text-slate-900">{{ student.admission_date|date:"Y-m-d" }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-950">Guardians</h2>
+          <p class="mt-2 text-sm text-slate-600">Primary contacts, emergency contacts, and fee payers linked to this student.</p>
+        </div>
+        {% if can_manage_guardian_links %}
+          <div class="flex flex-wrap gap-3">
+            <a href="{% url 'students:guardian-create' %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Create guardian</a>
+            <button type="button" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700" hx-get="{% url 'students:relationship-create' student.pk %}" hx-target="#student-side-panel" hx-swap="innerHTML">Link guardian</button>
+          </div>
+        {% endif %}
+      </div>
+      <div class="mt-6 space-y-4">
+        {% for relationship in student.guardian_relationships.all %}
+          <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p class="font-semibold text-slate-900">{{ relationship.guardian }}</p>
+                <p class="mt-1 text-sm text-slate-600">{{ relationship.get_relationship_display }} · {{ relationship.guardian.user.email }} · {{ relationship.guardian.user.phone|default:"No phone" }}</p>
+                <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
+                  {% if relationship.is_primary_contact %}<span class="rounded-full bg-sky-100 px-3 py-1 text-sky-800">Primary contact</span>{% endif %}
+                  {% if relationship.is_emergency_contact %}<span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Emergency</span>{% endif %}
+                  {% if relationship.is_fee_payer %}<span class="rounded-full bg-amber-100 px-3 py-1 text-amber-800">Fee payer</span>{% endif %}
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <a href="{% url 'students:guardian-detail' relationship.guardian.pk %}" class="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white">View guardian</a>
+                {% if can_manage_guardian_links %}
+                  <button type="button" class="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white" hx-get="{% url 'students:relationship-update' relationship.pk %}" hx-target="#student-side-panel" hx-swap="innerHTML">Edit link</button>
+                  <button type="button" class="rounded-full border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50" hx-get="{% url 'students:relationship-delete' relationship.pk %}" hx-target="#student-side-panel" hx-swap="innerHTML">Remove</button>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">No guardians are linked to this student yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-950">Enrollments</h2>
+          <p class="mt-2 text-sm text-slate-600">Current and historical class placements for this student.</p>
+        </div>
+        {% if can_manage_enrollments %}
+          <button type="button" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700" hx-get="{% url 'students:enrollment-create' student.pk %}" hx-target="#student-side-panel" hx-swap="innerHTML">Add enrollment</button>
+        {% endif %}
+      </div>
+      <div class="mt-6 grid gap-4">
+        {% for enrollment in student.enrollments.all %}
+          <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p class="font-semibold text-slate-900">{{ enrollment.class_section.display_name }} · {{ enrollment.term.get_name_display }}</p>
+                <p class="mt-1 text-sm text-slate-600">{{ enrollment.academic_year.name }} · Started {{ enrollment.start_date|date:"Y-m-d" }}{% if enrollment.roll_number %} · Roll {{ enrollment.roll_number }}{% endif %}</p>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800">{{ enrollment.get_status_display }}</span>
+                {% if can_manage_enrollments %}
+                  <button type="button" class="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white" hx-get="{% url 'students:enrollment-update' enrollment.pk %}" hx-target="#student-side-panel" hx-swap="innerHTML">Edit enrollment</button>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">No enrollments have been recorded yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-950">Recent CBC reports</h2>
+          <p class="mt-2 text-sm text-slate-600">The latest three competency-based report cards for this learner.</p>
+        </div>
+        <a href="{% url 'cbc:student-history' student.pk %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">View full history</a>
+      </div>
+      <div class="mt-6 space-y-3">
+        {% for report in recent_cbc_reports %}
+          <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="font-semibold text-slate-900">{{ report.term.get_name_display }} · {{ report.term.academic_year.name }}</p>
+                <p class="mt-1 text-sm text-slate-600">{{ report.enrollment.class_section.display_name }}{% if report.overall_level %} · Overall {{ report.overall_level }}{% endif %}</p>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <a href="{% url 'cbc:report-detail' report.pk %}" class="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-white">Preview</a>
+                <a href="{% url 'cbc:report-pdf' report.pk %}" class="rounded-full bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600">PDF</a>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">No CBC reports have been generated for this learner yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <aside class="space-y-6">
+    <div class="rounded-3xl border border-sky-200 bg-sky-50 p-6 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">Quick notes</p>
+      <div class="mt-4 space-y-3 text-sm leading-6 text-sky-900">
+        <p>Use guardian links to manage primary and emergency contacts without duplicating profile data.</p>
+        <p>Enrollment history stays in Module 1 so attendance, finance, and grades can build on a stable student record later.</p>
+      </div>
+    </div>
+
+    <div id="student-side-panel" class="space-y-4">
+      <div class="rounded-3xl border border-dashed border-slate-300 bg-white/70 p-6 text-sm text-slate-500 shadow-sm">
+        Choose “Link guardian,” “Add enrollment,” or an edit action to load a focused form here without leaving the student record.
+      </div>
+    </div>
+  </aside>
+</section>
+{% endblock %}

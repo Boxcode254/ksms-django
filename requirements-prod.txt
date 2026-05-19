@@ -1,0 +1,17 @@
+-r requirements.txt
+
+# Production hardening
+django-cors-headers==4.9.0
+django-ratelimit==4.1.0
+django-axes==7.0.2
+
+# Performance
+gunicorn==23.0.0
+uvicorn==0.35.0
+
+# Monitoring
+sentry-sdk==2.29.1
+
+# Security scanning
+bandit==1.8.6
+safety==3.6.2

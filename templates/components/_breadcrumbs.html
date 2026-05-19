@@ -1,0 +1,20 @@
+{% comment %}
+Breadcrumbs component.
+Usage:
+    {% include "components/_breadcrumbs.html" with crumbs=crumbs %}
+
+    where `crumbs` is a list of dicts: [{"label": "Finance", "url": "/finance/"}, {"label": "Invoices"}]
+    The last item with no `url` is rendered as the current page.
+{% endcomment %}
+{% if crumbs %}
+<nav class="ksms-breadcrumbs" aria-label="Breadcrumb">
+  {% for crumb in crumbs %}
+    {% if not forloop.first %}<span class="sep" aria-hidden="true">/</span>{% endif %}
+    {% if crumb.url and not forloop.last %}
+      <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+    {% else %}
+      <span class="current" aria-current="page">{{ crumb.label }}</span>
+    {% endif %}
+  {% endfor %}
+</nav>
+{% endif %}

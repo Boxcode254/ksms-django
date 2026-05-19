@@ -1,20 +1,40 @@
 {% extends "base.html" %}
-{% block title %}KSMS — System OK{% endblock %}
+{% block title %}EduTrack SMS | Complete School Management{% endblock %}
 
 {% block content %}
-<main class="flex min-h-screen flex-col items-center justify-center px-4">
-  <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg text-center">
-    <div class="mb-4 text-5xl">🏫</div>
-    <h1 class="text-2xl font-bold text-blue-800 mb-2">Kenya School Management System</h1>
-    <p class="text-gray-500 text-sm mb-6">Phase 0 — Project initialized successfully.</p>
-    <div class="inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-1.5 text-sm font-medium text-green-800">
-      <span class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-      Server running
-    </div>
-    <div class="mt-8 border-t pt-6 text-xs text-gray-400 space-y-1">
-      <p>Django 5.1 · PostgreSQL (Supabase) · HTMX · Tailwind CSS</p>
-      <p>Logged-in features available in Phase 1.</p>
+<section class="min-h-[calc(100vh-74px)] px-3 pb-4 pt-2 sm:px-5 sm:pt-4 lg:px-8 lg:pb-8">
+  <div class="ksms-landing-shell ksms-landing-enter flex min-h-[calc(100vh-110px)] items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
+    <div class="ksms-landing-edu-icons" aria-hidden="true"></div>
+    <div class="ksms-landing-content mx-auto w-full max-w-4xl text-center">
+      <p class="ksms-landing-pill">International School Management System</p>
+      <h1 class="ksms-landing-display mt-6 text-4xl font-extrabold leading-[1.12] text-slate-50 sm:text-5xl lg:text-6xl">
+        <span class="ksms-landing-title-main">Complete School Management</span>
+        <span class="ksms-landing-title-sub">System</span>
+      </h1>
+      <p class="mx-auto mt-5 max-w-3xl text-base font-medium text-slate-300 sm:text-xl">
+        Manage students, staff, fees, attendance, grades and more in one secure platform.
+      </p>
+
+      <div class="ksms-landing-chip-grid mx-auto mt-9 max-w-4xl text-left">
+        <div class="ksms-landing-chip"><span class="ksms-landing-chip-icon">S</span>Students &amp; Enrollment</div>
+        <div class="ksms-landing-chip"><span class="ksms-landing-chip-icon">F</span>Fees Collection</div>
+        <div class="ksms-landing-chip"><span class="ksms-landing-chip-icon">A</span>Attendance Register</div>
+        <div class="ksms-landing-chip"><span class="ksms-landing-chip-icon">G</span>Grades &amp; Report Cards</div>
+        <div class="ksms-landing-chip"><span class="ksms-landing-chip-icon">P</span>Parent Engagement</div>
+        <div class="ksms-landing-chip"><span class="ksms-landing-chip-icon">R</span>Role-Based Access</div>
+      </div>
+
+      <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+        {% if user.is_authenticated %}
+          <a href="{% url 'core:dashboard' %}" class="ksms-landing-cta">Open Dashboard</a>
+        {% else %}
+          <a href="{% url 'account_login' %}" class="ksms-landing-cta">Staff Login</a>
+          <a href="{% url 'account_signup' %}" class="rounded-lg border border-slate-400/40 bg-slate-800/40 px-6 py-4 text-base font-semibold text-slate-100 hover:bg-slate-700/40">
+            Create Parent Account
+          </a>
+        {% endif %}
+      </div>
     </div>
   </div>
-</main>
+</section>
 {% endblock %}

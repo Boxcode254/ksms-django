@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}KSMS | My Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <section class="ksms-card p-6 sm:p-7">
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Student Portal</p>
+    <h2 class="ksms-display mt-2 text-3xl font-bold text-slate-950">My Dashboard</h2>
+    {% if enrollment %}
+      <p class="mt-2 text-sm text-slate-600">{{ enrollment.class_section.display_name }}{% if current_term %} · {{ current_term.get_name_display }}, {{ current_term.academic_year.name }}{% endif %}</p>
+    {% elif student_profile %}
+      <p class="mt-2 text-sm text-slate-600">Admission #{{ student_profile.admission_number }}</p>
+    {% endif %}
+    <div class="mt-4 flex flex-wrap gap-2">
+      {% if student_profile %}
+        <a href="{% url 'reports:report-card' student_profile.pk %}" class="ksms-btn ksms-btn-primary">My report card</a>
+      {% endif %}
+      <a href="{% url 'finance:invoice-list' %}" class="ksms-btn ksms-btn-secondary">My fee status</a>
+      <a href="{% url 'academics:timetable-list' %}" class="ksms-btn ksms-btn-soft">Today's timetable</a>
+    </div>
+  </section>
+
+  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <article class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div class="flex items-start gap-4">
+        <div class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-slate-400">Attendance</p>
+          {% if attendance_pct is not None %}
+            <p class="mt-1 text-2xl font-bold text-slate-800">{{ attendance_pct }}%</p>
+          {% else %}
+            <p class="mt-1 text-2xl font-bold text-slate-400">--</p>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+
+    <article class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div class="flex items-start gap-4">
+        <div class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.499 5.221 50.552 50.552 0 00-2.658.814m-15.482 0a50.697 50.697 0 0112.485-5.04 50.7 50.7 0 0112.485 5.04"/></svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-slate-400">Academic Average</p>
+          {% if academic_avg is not None %}
+            <p class="mt-1 text-2xl font-bold text-slate-800">{{ academic_avg }}</p>
+          {% else %}
+            <p class="mt-1 text-2xl font-bold text-slate-400">--</p>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+
+    <article class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div class="flex items-start gap-4">
+        <div class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/></svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-slate-400">Fee Balance</p>
+          {% if fees_balance %}
+            <p class="mt-1 text-xl font-bold text-slate-800">KES {{ fees_balance|floatformat:0 }}</p>
+          {% else %}
+            <p class="mt-1 text-xl font-bold text-emerald-600">All Paid</p>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+
+    <article class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div class="flex items-start gap-4">
+        <div class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-slate-400">Today</p>
+          <p class="mt-1 text-xl font-bold text-slate-800">{{ today|date:"l" }}</p>
+          <p class="mt-0.5 text-xs text-slate-400">{{ today|date:"j F Y" }}</p>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div class="space-y-6">
+      <div class="ksms-card p-6">
+        <h3 class="ksms-display text-lg font-bold text-slate-900">Today's Timetable</h3>
+        {% if today_timetable %}
+          <div class="mt-4 space-y-3">
+            {% for entry in today_timetable %}
+              <div class="ksms-card-soft flex items-start gap-4 px-4 py-3">
+                <div class="min-w-[88px] rounded-lg bg-white px-2 py-1 text-center text-xs font-bold text-slate-600">
+                  {{ entry.start_time|time:"H:i" }}<br>{{ entry.end_time|time:"H:i" }}
+                </div>
+                <div>
+                  <p class="font-semibold text-slate-900">{{ entry.subject.name }}</p>
+                  <p class="text-xs text-slate-500">{{ entry.teacher.user.get_full_name|default:entry.teacher.user.username }}</p>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">No classes scheduled for today.</p>
+        {% endif %}
+      </div>
+
+      <div class="ksms-card p-6">
+        <h3 class="ksms-display text-lg font-bold text-slate-900">Recent Grades</h3>
+        {% if recent_grades %}
+          <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-sm text-slate-700">
+              <thead>
+                <tr class="border-b border-slate-200 text-xs text-slate-500">
+                  <th class="py-2 pr-4 text-left font-semibold uppercase tracking-[0.1em]">Subject</th>
+                  <th class="py-2 pr-4 text-left font-semibold uppercase tracking-[0.1em]">Score</th>
+                  <th class="py-2 text-left font-semibold uppercase tracking-[0.1em]">Grade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for gr in recent_grades %}
+                  <tr class="border-b border-slate-100 hover:bg-slate-50">
+                    <td class="py-2 pr-4 font-medium">{{ gr.subject.name }}</td>
+                    <td class="py-2 pr-4">{{ gr.score }}</td>
+                    <td class="py-2">{{ gr.grade|default:"--" }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">No grades recorded yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <aside class="space-y-6">
+      <div class="ksms-card p-6">
+        <h3 class="ksms-display text-lg font-bold text-slate-900">Attendance This Month</h3>
+        {% if monthly_attendance %}
+          <div class="mt-4 space-y-2">
+            {% for record in monthly_attendance %}
+              <div class="ksms-card-soft flex items-center justify-between px-3 py-2 text-sm">
+                <span class="text-slate-700">{{ record.attendance_date|date:"j M" }}</span>
+                <span class="font-semibold
+                  {% if record.status == 'present' %}text-emerald-700
+                  {% elif record.status == 'absent' %}text-red-700
+                  {% elif record.status == 'late' %}text-amber-700
+                  {% else %}text-slate-600{% endif %}">
+                  {{ record.get_status_display }}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">No attendance records this month.</p>
+        {% endif %}
+      </div>
+
+      <div class="ksms-card p-6">
+        <h3 class="ksms-display text-lg font-bold text-slate-900">Announcements</h3>
+        {% if announcements %}
+          <div class="mt-4 space-y-3">
+            {% for ann in announcements %}
+              <article class="ksms-card-soft p-3">
+                <p class="font-semibold text-slate-900">{{ ann.title }}</p>
+                <p class="mt-1 line-clamp-3 text-xs text-slate-600">{{ ann.body }}</p>
+                <p class="mt-2 text-xs text-slate-500">{{ ann.created_at|date:"j M Y" }}</p>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">No announcements at this time.</p>
+        {% endif %}
+      </div>
+    </aside>
+  </section>
+</div>
+{% endblock %}

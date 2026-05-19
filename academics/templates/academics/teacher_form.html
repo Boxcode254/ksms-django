@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}KSMS | {{ form_title }}{% endblock %}
+
+{% block content %}
+<section class="mx-auto max-w-6xl">
+  <div class="border border-slate-200 bg-white p-4 sm:p-5">
+    <div class="mb-4">
+      <h1 class="text-2xl font-bold text-slate-950">{{ form_title }}</h1>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="teacher-form-simple space-y-4" novalidate>
+      {% csrf_token %}
+      {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+      {% endfor %}
+      {% if form.non_field_errors %}
+        <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <style>
+        .teacher-form-simple label {
+          color: #1f2937;
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+        }
+        .teacher-form-simple input:not([type='checkbox']):not([type='radio']):not([type='file']),
+        .teacher-form-simple select,
+        .teacher-form-simple textarea {
+          border-radius: 0 !important;
+          border-color: #d1d5db !important;
+          box-shadow: none !important;
+          padding-top: 0.56rem !important;
+          padding-bottom: 0.56rem !important;
+        }
+        .teacher-form-simple textarea {
+          min-height: 86px !important;
+        }
+        .teacher-form-simple select[multiple] {
+          height: auto !important;
+          min-height: 120px !important;
+          padding: 0.25rem !important;
+          overflow-y: auto !important;
+        }
+        .teacher-form-simple select[multiple] option {
+          padding: 0.35rem 0.5rem !important;
+          border-radius: 0.25rem !important;
+          margin-bottom: 2px !important;
+          cursor: pointer !important;
+        }
+        .teacher-form-simple select[multiple] option:hover {
+          background-color: #eff6ff !important;
+        }
+        .teacher-form-simple select[multiple] option:checked {
+          background-color: #1d4ed8 !important;
+          color: #fff !important;
+        }
+        .teacher-form-simple select[multiple] option:checked:hover {
+          background-color: #1e40af !important;
+        }
+        .teacher-form-simple input[type='file'] {
+          padding: 0.5rem !important;
+          font-size: 0.8rem !important;
+        }
+      </style>
+
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {% for field in form.visible_fields %}
+          <div class="space-y-1 {% if field.name == 'notes' or field.name == 'assigned_classes' or field.name == 'assigned_subjects' or field.name == 'classes_in_charge' %}md:col-span-2 xl:col-span-3{% endif %}">
+            <label for="{{ field.id_for_label }}" class="block">{{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<p class="text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+            {% if field.errors %}<p class="text-sm text-red-700">{{ field.errors|striptags }}</p>{% endif %}
+            {% if field.name == 'profile_photo' %}<p class="text-xs text-slate-500">JPG, PNG or WebP. Max 2MB.</p>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="flex items-center justify-between gap-3 pt-2">
+        <a href="{{ cancel_url }}" class="border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</a>
+        <button type="submit" class="ksms-btn ksms-btn-primary px-5 py-2 text-sm font-semibold">{{ submit_label }}</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

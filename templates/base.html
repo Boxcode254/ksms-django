@@ -1,4 +1,4 @@
-{% load static tailwind_tags %}
+{% load static tailwind_tags cache %}
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
@@ -14,17 +14,33 @@
 </head>
 <body class="min-h-full text-slate-900 antialiased" hx-boost="true">
   <div id="global-loading-indicator" class="ksms-progress-bar" data-loading="false" hx-preserve></div>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ksms-theme');
+        if (t === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); }
+        var s = localStorage.getItem('ksms-sidebar');
+        if (s === 'collapsed') { document.documentElement.setAttribute('data-sidebar', 'collapsed'); }
+      } catch (e) {}
+    })();
+  </script>
   <div class="min-h-screen {% if user.is_authenticated %}lg:flex{% endif %}">
     {% if user.is_authenticated %}
       {% with ns=request.resolver_match.namespace|default:'' name=request.resolver_match.url_name|default:'' %}
-        <aside class="ksms-app-sidebar hidden w-[280px] shrink-0 border-r border-blue-300/25 px-5 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto">
-          <a href="{% url 'core:dashboard' %}" class="flex items-center gap-3 px-2 py-1 mb-2">
-            <img src="{% static 'img/logo.png' %}" alt="KSMS Logo" class="h-10 w-10 object-contain">
-            <span>
-              <span class="ksms-display block text-sm font-semibold text-slate-100">EduTrack SMS</span>
-              <span class="block text-[10px] font-medium uppercase tracking-wider text-blue-200/80">School Management System</span>
-            </span>
-          </a>
+        {% cache 3600 sidebar user.id user.role user.school_id ns name %}
+        <aside class="ksms-app-sidebar hidden w-[260px] shrink-0 border-r border-blue-300/25 px-5 py-6 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <a href="{% url 'core:dashboard' %}" class="flex items-center gap-3 px-2 py-1 min-w-0">
+              <img src="{% static 'img/logo.png' %}" alt="KSMS Logo" class="h-9 w-9 object-contain shrink-0">
+              <span class="ksms-sidebar-brand-text min-w-0">
+                <span class="ksms-display block text-sm font-semibold text-slate-100 truncate">EduTrack SMS</span>
+                <span class="block text-[10px] font-medium uppercase tracking-wider text-blue-200/80 truncate">School Management</span>
+              </span>
+            </a>
+            <button type="button" id="sidebar-collapse-toggle" class="ksms-sidebar-collapse-btn shrink-0" aria-label="Collapse sidebar" title="Collapse sidebar (Ctrl+B)">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          </div>
 
           <nav class="mt-6 space-y-6">
             {% include "components/_nav_links.html" with ns=ns name=name %}
@@ -44,6 +60,7 @@
             </form>
           </div>
         </aside>
+        {% endcache %}
       {% endwith %}
     {% endif %}
 
@@ -61,7 +78,9 @@
                   <button type="button" id="mobile-nav-close" class="rounded-lg border border-blue-200/30 bg-slate-900/30 px-2 py-1 text-xs font-semibold text-slate-100">Close</button>
                 </div>
                 <div class="space-y-4 overflow-y-auto px-3 py-3">
+                  {% cache 3600 mobile_nav user.id user.role user.school_id ns name %}
                   {% include "components/_nav_links.html" with ns=ns name=name %}
+                  {% endcache %}
                   <div class="border-t border-blue-200/25 pt-3">
                     <a href="{% url 'account_change_password' %}" class="ksms-sidebar-link {% if ns == 'account' and name == 'account_change_password' %}is-active{% endif %}"><span>Password</span></a>
                     <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
@@ -77,15 +96,51 @@
               </div>
             </div>
 
-            <div class="flex items-center gap-4">
-              <span class="hidden rounded-md border border-blue-200/30 bg-slate-900/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-100 sm:inline-flex">{{ user.get_role_display }}</span>
-              <button class="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-slate-900/35 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-blue-900">
-                <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-xs ring-1 ring-white/40">
-                  {{ user.get_full_name|default:user.username|make_list|first|upper }}
-                </span>
-                <span class="hidden pr-2 text-sm font-medium text-slate-100 md:block">{{ user.get_full_name|default:user.username }}</span>
-                <svg class="hidden h-4 w-4 text-blue-200 md:block" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+            <div class="flex items-center gap-3">
+              <button type="button" id="palette-trigger" class="hidden md:inline-flex items-center gap-2 rounded-lg border border-blue-200/35 bg-slate-900/30 px-3 py-1.5 text-xs font-medium text-blue-100 hover:bg-slate-900/45 focus:outline-none focus:ring-2 focus:ring-blue-300" aria-label="Open command palette" title="Quick jump (Ctrl+K)">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3"/></svg>
+                <span>Quick jump</span>
+                <kbd class="ksms-kbd" style="border-color: rgba(191,219,254,0.4); background: rgba(15,23,42,0.4); color: #dbeafe;">Ctrl K</kbd>
               </button>
+              <button type="button" id="palette-trigger-mobile" class="md:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg border border-blue-200/35 bg-slate-900/30 text-blue-100 hover:bg-slate-900/45" aria-label="Open command palette">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3"/></svg>
+              </button>
+              <span class="hidden rounded-md border border-blue-200/30 bg-slate-900/30 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-100 sm:inline-flex">{{ user.get_role_display }}</span>
+              <div class="relative" id="avatar-menu-wrap">
+                <button type="button" id="avatar-trigger" class="flex items-center gap-2 rounded-full p-1 transition-colors hover:bg-slate-900/35 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2 focus:ring-offset-blue-900" aria-haspopup="true" aria-expanded="false" aria-controls="avatar-menu">
+                  <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-xs ring-1 ring-white/40">
+                    {{ user.get_full_name|default:user.username|make_list|first|upper }}
+                  </span>
+                  <span class="hidden pr-2 text-sm font-medium text-slate-100 md:block">{{ user.get_full_name|default:user.username }}</span>
+                  <svg class="hidden h-4 w-4 text-blue-200 md:block" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+                </button>
+                <div id="avatar-menu" class="ksms-avatar-menu" role="menu" aria-labelledby="avatar-trigger">
+                  <div class="ksms-avatar-menu-head">
+                    <span class="name">{{ user.get_full_name|default:user.username }}</span>
+                    <span class="role">{{ user.get_role_display }}</span>
+                  </div>
+                  <a href="{% url 'core:dashboard' %}" class="ksms-avatar-menu-item" role="menuitem">
+                    <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+                    Dashboard
+                  </a>
+                  <a href="{% url 'account_change_password' %}" class="ksms-avatar-menu-item" role="menuitem">
+                    <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 10V7a4 4 0 00-8 0v3M6 10h12v10H6z"/></svg>
+                    Change password
+                  </a>
+                  <button type="button" id="theme-toggle" class="ksms-avatar-menu-item" role="menuitem">
+                    <svg class="h-4 w-4 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+                    <span id="theme-toggle-label">Dark mode</span>
+                  </button>
+                  <div class="ksms-avatar-menu-sep"></div>
+                  <form method="post" action="{% url 'account_logout' %}" hx-boost="false">
+                    {% csrf_token %}
+                    <button type="submit" class="ksms-avatar-menu-item is-danger" role="menuitem">
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v8a2 2 0 002 2h4M14 16l4-4-4-4M18 12H9"/></svg>
+                      Log out
+                    </button>
+                  </form>
+                </div>
+              </div>
             </div>
           </div>
         </header>
@@ -129,6 +184,10 @@
       <div id="ksms-modal-body" role="dialog" aria-modal="true" aria-labelledby="ksms-modal-title" class="mx-auto w-full max-w-6xl"></div>
     </div>
   </div>
+
+  {% if user.is_authenticated %}
+    {% include "components/_command_palette.html" %}
+  {% endif %}
 
   <!-- Toast notifications – bottom-right -->
   <div id="ksms-toast-stack" aria-live="polite" aria-atomic="false"
@@ -548,6 +607,184 @@
             });
           });
         }
+
+        // ── Sidebar collapse ───────────────────────────────────────────────────
+        function applySidebarState() {
+          var collapsed = document.documentElement.getAttribute('data-sidebar') === 'collapsed';
+          var btn = document.getElementById('sidebar-collapse-toggle');
+          if (btn) {
+            btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            btn.setAttribute('title', (collapsed ? 'Expand' : 'Collapse') + ' sidebar (Ctrl+B)');
+          }
+        }
+        document.addEventListener('click', function (e) {
+          var t = e.target instanceof HTMLElement ? e.target.closest('#sidebar-collapse-toggle') : null;
+          if (!t) return;
+          var collapsed = document.documentElement.getAttribute('data-sidebar') === 'collapsed';
+          if (collapsed) {
+            document.documentElement.removeAttribute('data-sidebar');
+            try { localStorage.setItem('ksms-sidebar', 'expanded'); } catch (e) {}
+          } else {
+            document.documentElement.setAttribute('data-sidebar', 'collapsed');
+            try { localStorage.setItem('ksms-sidebar', 'collapsed'); } catch (e) {}
+          }
+          applySidebarState();
+        });
+        applySidebarState();
+
+        // ── Theme toggle ───────────────────────────────────────────────────────
+        function applyThemeState() {
+          var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+          var label = document.getElementById('theme-toggle-label');
+          if (label) { label.textContent = dark ? 'Light mode' : 'Dark mode'; }
+        }
+        document.addEventListener('click', function (e) {
+          var t = e.target instanceof HTMLElement ? e.target.closest('#theme-toggle') : null;
+          if (!t) return;
+          var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+          if (dark) {
+            document.documentElement.removeAttribute('data-theme');
+            try { localStorage.setItem('ksms-theme', 'light'); } catch (e) {}
+          } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            try { localStorage.setItem('ksms-theme', 'dark'); } catch (e) {}
+          }
+          applyThemeState();
+        });
+        applyThemeState();
+
+        // ── Avatar dropdown ────────────────────────────────────────────────────
+        function setAvatarOpen(open) {
+          var menu = document.getElementById('avatar-menu');
+          var trigger = document.getElementById('avatar-trigger');
+          if (!menu || !trigger) return;
+          menu.setAttribute('data-open', open ? 'true' : 'false');
+          trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        document.addEventListener('click', function (e) {
+          var t = e.target;
+          if (!(t instanceof HTMLElement)) return;
+          var trigger = t.closest('#avatar-trigger');
+          if (trigger) {
+            var menu = document.getElementById('avatar-menu');
+            var open = menu && menu.getAttribute('data-open') === 'true';
+            setAvatarOpen(!open);
+            return;
+          }
+          // Click outside closes menu
+          if (!t.closest('#avatar-menu-wrap')) {
+            setAvatarOpen(false);
+          }
+        });
+
+        // ── Command palette (⌘K / Ctrl+K) ──────────────────────────────────────
+        var paletteState = { items: [], filtered: [], cursor: 0 };
+        function loadPaletteItems() {
+          var script = document.getElementById('ksms-palette-items');
+          if (!script) return [];
+          try { return JSON.parse(script.textContent || '[]'); } catch (e) { return []; }
+        }
+        function paletteEscape(s) {
+          return String(s).replace(/[&<>"']/g, function (c) {
+            return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+          });
+        }
+        function renderPalette(items) {
+          var list = document.getElementById('ksms-palette-list');
+          if (!list) return;
+          if (!items.length) {
+            list.innerHTML = '<div class="ksms-palette-empty">No matches.</div>';
+            return;
+          }
+          var html = '';
+          var currentGroup = '';
+          items.forEach(function (it, idx) {
+            if (it.group !== currentGroup) {
+              html += '<div class="ksms-palette-group-label">' + paletteEscape(it.group) + '</div>';
+              currentGroup = it.group;
+            }
+            html += '<a class="ksms-palette-item' + (idx === paletteState.cursor ? ' is-active' : '') + '"' +
+              ' href="' + paletteEscape(it.url) + '" data-palette-index="' + idx + '">' +
+              '<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="' + paletteEscape(it.icon || 'M5 12h14') + '"/></svg></span>' +
+              '<span>' + paletteEscape(it.label) + '</span>' +
+              '<span class="hint">' + paletteEscape(it.group) + '</span>' +
+              '</a>';
+          });
+          list.innerHTML = html;
+        }
+        function filterPalette(q) {
+          q = (q || '').trim().toLowerCase();
+          if (!q) { paletteState.filtered = paletteState.items.slice(); }
+          else {
+            paletteState.filtered = paletteState.items.filter(function (it) {
+              var hay = (it.label + ' ' + it.group + ' ' + (it.keywords || '')).toLowerCase();
+              return hay.indexOf(q) !== -1;
+            });
+          }
+          paletteState.cursor = 0;
+          renderPalette(paletteState.filtered);
+        }
+        function openPalette() {
+          var el = document.getElementById('ksms-palette');
+          var input = document.getElementById('ksms-palette-input');
+          if (!el || !input) return;
+          if (!paletteState.items.length) { paletteState.items = loadPaletteItems(); }
+          el.classList.add('is-open');
+          el.setAttribute('aria-hidden', 'false');
+          input.value = '';
+          filterPalette('');
+          window.setTimeout(function () { input.focus(); }, 0);
+        }
+        function closePalette() {
+          var el = document.getElementById('ksms-palette');
+          if (!el) return;
+          el.classList.remove('is-open');
+          el.setAttribute('aria-hidden', 'true');
+        }
+        document.addEventListener('click', function (e) {
+          var t = e.target;
+          if (!(t instanceof HTMLElement)) return;
+          if (t.closest('#palette-trigger') || t.closest('#palette-trigger-mobile')) { e.preventDefault(); openPalette(); return; }
+          if (t.hasAttribute('data-palette-close') || t.closest('[data-palette-close]')) { closePalette(); return; }
+        });
+        document.addEventListener('keydown', function (e) {
+          var isMod = e.metaKey || e.ctrlKey;
+          if (isMod && (e.key === 'k' || e.key === 'K')) {
+            e.preventDefault();
+            var el = document.getElementById('ksms-palette');
+            if (!el) return;
+            if (el.classList.contains('is-open')) { closePalette(); } else { openPalette(); }
+            return;
+          }
+          if (isMod && (e.key === 'b' || e.key === 'B')) {
+            var btn = document.getElementById('sidebar-collapse-toggle');
+            if (btn) { e.preventDefault(); btn.click(); }
+            return;
+          }
+          var pal = document.getElementById('ksms-palette');
+          if (!pal || !pal.classList.contains('is-open')) return;
+          if (e.key === 'Escape') { e.preventDefault(); closePalette(); return; }
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (paletteState.cursor < paletteState.filtered.length - 1) { paletteState.cursor++; renderPalette(paletteState.filtered); }
+            return;
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (paletteState.cursor > 0) { paletteState.cursor--; renderPalette(paletteState.filtered); }
+            return;
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            var item = paletteState.filtered[paletteState.cursor];
+            if (item && item.url) { window.location.href = item.url; }
+          }
+        });
+        document.addEventListener('input', function (e) {
+          var t = e.target;
+          if (!(t instanceof HTMLElement) || t.id !== 'ksms-palette-input') return;
+          filterPalette(t.value);
+        });
       }
     })();
   </script>

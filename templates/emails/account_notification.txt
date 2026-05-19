@@ -1,0 +1,12 @@
+Dear {{ user.get_full_name|default:user.username }},
+
+{{ message }}
+
+{% if action_url %}
+You can take action here:
+{{ action_url }}
+{% endif %}
+
+If you have any questions, please contact your school administrator.
+
+-- {{ site_name }} via KSMS

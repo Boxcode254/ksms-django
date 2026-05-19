@@ -1,0 +1,65 @@
+{% load finance_tags %}
+<div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+  <div class="overflow-x-auto">
+    <table class="ksms-data-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Student</th>
+          <th>Amount Due</th>
+          <th>Balance</th>
+          <th>Deleted At</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for invoice in invoices %}
+        <tr>
+          <td class="font-mono text-xs font-bold text-sky-700">{{ invoice.invoice_number }}</td>
+          <td>
+            <span class="font-medium text-slate-900">{{ invoice.enrollment.student.user.get_full_name|default:invoice.enrollment.student.user.username }}</span>
+            <span class="block text-xs text-slate-400">{{ invoice.enrollment.student.admission_number }}</span>
+          </td>
+          <td class="whitespace-nowrap font-mono text-slate-900">{{ invoice.amount_due }}</td>
+          <td class="whitespace-nowrap font-mono {% if invoice.balance > 0 %}text-red-600 font-semibold{% else %}text-emerald-700{% endif %}">{{ invoice.balance }}</td>
+          <td class="whitespace-nowrap text-slate-600">{{ invoice.deleted_at|date:"d M Y, H:i" }}</td>
+          <td class="text-right whitespace-nowrap">
+            <form method="post" action="{% url 'finance:invoice-restore' invoice.pk %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.625rem; font-size: 0.75rem;">
+                <svg class="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Restore
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">
+            <div class="flex flex-col items-center gap-4 px-6 py-14 text-center">
+              <svg class="h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <p class="text-sm font-semibold text-slate-600">No deleted invoices</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if is_paginated %}
+  <div class="flex items-center justify-between gap-4 border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+    <span class="text-xs text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    <div class="flex gap-2">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Previous</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>

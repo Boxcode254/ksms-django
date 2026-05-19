@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}KSMS | {{ form_title }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-2xl space-y-6">
+
+  <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h1 class="text-xl font-bold text-slate-900">{{ form_title }}</h1>
+      <a href="{{ cancel_url }}"
+         class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+         title="Back">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </a>
+    </div>
+  </section>
+
+  <form method="post" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+    <div class="space-y-5">
+      {% for field in form %}
+        <div>
+          <label for="{{ field.id_for_label }}"
+                 class="block mb-1.5 text-xs font-medium text-slate-500">
+            {{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}
+          </label>
+          {{ field }}
+          {% if field.errors %}
+            <p class="mt-1.5 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+          {% endif %}
+          {% if field.help_text %}
+            <p class="mt-1.5 text-xs text-slate-400">{{ field.help_text }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="mt-6 flex flex-wrap gap-3">
+      <button type="submit"
+              class="rounded-lg bg-[#1a4989] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#14366b] transition-colors">
+        {{ submit_label }}
+      </button>
+      <a href="{{ cancel_url }}"
+         class="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+        Cancel
+      </a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

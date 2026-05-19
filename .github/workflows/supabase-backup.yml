@@ -1,0 +1,81 @@
+name: Supabase Database Backup
+
+on:
+  schedule:
+    # Run daily at 02:00 UTC (off-peak)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  backup:
+    name: Dump & Upload to R2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          DUMP_FILE="backups/${SUPABASE_PROJECT_REF}_${TIMESTAMP}.sql"
+          echo "Dumping to ${DUMP_FILE} ..."
+          supabase db dump \
+            --db-url "postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_REF}.supabase.co:5432/postgres" \
+            --file "${DUMP_FILE}"
+          echo "DUMP_FILE=${DUMP_FILE}" >> "$GITHUB_ENV"
+          echo "TIMESTAMP=${TIMESTAMP}" >> "$GITHUB_ENV"
+
+      - name: Compress dump
+        run: |
+          gzip -c "${{ env.DUMP_FILE }}" > "${{ env.DUMP_FILE }}.gz"
+          ls -lh "${{ env.DUMP_FILE }}.gz"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          aws s3 cp "${{ env.DUMP_FILE }}.gz" \
+            "s3://${R2_BUCKET}/${SUPABASE_PROJECT_REF}/${SUPABASE_PROJECT_REF}_${TIMESTAMP}.sql.gz" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --storage-class STANDARD
+
+      - name: Cleanup old R2 backups (keep 30 days)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          # List objects older than 30 days and delete them
+          aws s3 ls "s3://${R2_BUCKET}/${SUPABASE_PROJECT_REF}/" \
+            --endpoint-url "${R2_ENDPOINT}" | \
+            awk -v d="$(date -d '30 days ago' '+%Y%m%d')" '$1 < d {print $4}' | \
+            while read -r obj; do
+              echo "Deleting old backup: ${obj}"
+              aws s3 rm "s3://${R2_BUCKET}/${SUPABASE_PROJECT_REF}/${obj}" \
+                --endpoint-url "${R2_ENDPOINT}"
+            done
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "::error::Backup failed. Check logs above."

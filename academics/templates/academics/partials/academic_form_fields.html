@@ -1,0 +1,194 @@
+{% for hidden in form.hidden_fields %}
+  {{ hidden }}
+{% endfor %}
+<style>
+  .ksms-form-compact label {
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #1f2937;
+  }
+  .ksms-form-compact input,
+  .ksms-form-compact select,
+  .ksms-form-compact textarea {
+    border-radius: 0 !important;
+    border-color: #d1d5db !important;
+    box-shadow: none !important;
+    padding-top: 0.62rem !important;
+    padding-bottom: 0.62rem !important;
+  }
+  .ksms-form-compact textarea {
+    min-height: 90px !important;
+  }
+</style>
+{% if form.non_field_errors %}
+  <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{{ form.non_field_errors }}</div>
+{% endif %}
+{% if form.fields.teaching_assignment and form.fields.weekday %}
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {% if form.school %}
+      <div class="space-y-2">
+        <label for="{{ form.school.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+          {{ form.school.label }}{% if form.school.field.required %} <span class="text-red-500">*</span>{% endif %}
+        </label>
+        {{ form.school }}
+        {% if form.school.help_text %}<p class="text-xs text-slate-500">{{ form.school.help_text }}</p>{% endif %}
+        {% if form.school.errors %}<p class="text-sm text-red-700">{{ form.school.errors|striptags }}</p>{% endif %}
+      </div>
+    {% endif %}
+
+    <div class="space-y-2 {% if not form.school %}xl:col-span-2{% endif %}">
+      <label for="{{ form.teaching_assignment.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.teaching_assignment.label }}{% if form.teaching_assignment.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.teaching_assignment }}
+      {% if form.teaching_assignment.help_text %}<p class="text-xs text-slate-500">{{ form.teaching_assignment.help_text }}</p>{% endif %}
+      {% if form.teaching_assignment.errors %}<p class="text-sm text-red-700">{{ form.teaching_assignment.errors|striptags }}</p>{% endif %}
+    </div>
+
+    <div class="space-y-2">
+      <label for="{{ form.weekday.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.weekday.label }}{% if form.weekday.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.weekday }}
+      {% if form.weekday.help_text %}<p class="text-xs text-slate-500">{{ form.weekday.help_text }}</p>{% endif %}
+      {% if form.weekday.errors %}<p class="text-sm text-red-700">{{ form.weekday.errors|striptags }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div class="space-y-2">
+      <label for="{{ form.start_time.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.start_time.label }}{% if form.start_time.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.start_time }}
+      {% if form.start_time.help_text %}<p class="text-xs text-slate-500">{{ form.start_time.help_text }}</p>{% endif %}
+      {% if form.start_time.errors %}<p class="text-sm text-red-700">{{ form.start_time.errors|striptags }}</p>{% endif %}
+    </div>
+    <div class="space-y-2">
+      <label for="{{ form.end_time.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.end_time.label }}{% if form.end_time.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.end_time }}
+      {% if form.end_time.help_text %}<p class="text-xs text-slate-500">{{ form.end_time.help_text }}</p>{% endif %}
+      {% if form.end_time.errors %}<p class="text-sm text-red-700">{{ form.end_time.errors|striptags }}</p>{% endif %}
+    </div>
+    <div class="space-y-2 md:col-span-2 xl:col-span-1">
+      <label for="{{ form.room_name.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.room_name.label }}{% if form.room_name.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.room_name }}
+      {% if form.room_name.help_text %}<p class="text-xs text-slate-500">{{ form.room_name.help_text }}</p>{% endif %}
+      {% if form.room_name.errors %}<p class="text-sm text-red-700">{{ form.room_name.errors|striptags }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    {% if form.period_label %}
+      <div class="space-y-2">
+        <label for="{{ form.period_label.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+          {{ form.period_label.label }}{% if form.period_label.field.required %} <span class="text-red-500">*</span>{% endif %}
+        </label>
+        {{ form.period_label }}
+        {% if form.period_label.help_text %}<p class="text-xs text-slate-500">{{ form.period_label.help_text }}</p>{% endif %}
+        {% if form.period_label.errors %}<p class="text-sm text-red-700">{{ form.period_label.errors|striptags }}</p>{% endif %}
+      </div>
+    {% endif %}
+
+    <div class="space-y-2">
+      <label for="{{ form.term.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.term.label }}{% if form.term.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.term }}
+      {% if form.term.help_text %}<p class="text-xs text-slate-500">{{ form.term.help_text }}</p>{% endif %}
+      {% if form.term.errors %}<p class="text-sm text-red-700">{{ form.term.errors|striptags }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="space-y-2">
+    <label for="{{ form.notes.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+      {{ form.notes.label }}{% if form.notes.field.required %} <span class="text-red-500">*</span>{% endif %}
+    </label>
+    {{ form.notes }}
+    {% if form.notes.help_text %}<p class="text-xs text-slate-500">{{ form.notes.help_text }}</p>{% endif %}
+    {% if form.notes.errors %}<p class="text-sm text-red-700">{{ form.notes.errors|striptags }}</p>{% endif %}
+  </div>
+
+{% elif form.fields.name and form.fields.code and form.fields.is_optional and form.fields.is_active %}
+  {% if form.school %}
+    <div class="space-y-2">
+      <label for="{{ form.school.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.school.label }}{% if form.school.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.school }}
+      {% if form.school.help_text %}<p class="text-xs text-slate-500">{{ form.school.help_text }}</p>{% endif %}
+      {% if form.school.errors %}<p class="text-sm text-red-700">{{ form.school.errors|striptags }}</p>{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="space-y-2">
+      <label for="{{ form.name.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.name.label }}{% if form.name.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.name }}
+      {% if form.name.help_text %}<p class="text-xs text-slate-500">{{ form.name.help_text }}</p>{% endif %}
+      {% if form.name.errors %}<p class="text-sm text-red-700">{{ form.name.errors|striptags }}</p>{% endif %}
+    </div>
+    <div class="space-y-2">
+      <label for="{{ form.code.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.code.label }}{% if form.code.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.code }}
+      {% if form.code.help_text %}<p class="text-xs text-slate-500">{{ form.code.help_text }}</p>{% endif %}
+      {% if form.code.errors %}<p class="text-sm text-red-700">{{ form.code.errors|striptags }}</p>{% endif %}
+    </div>
+  </div>
+
+  {% if form.description %}
+    <div class="space-y-2">
+      <label for="{{ form.description.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.description.label }}{% if form.description.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.description }}
+      {% if form.description.help_text %}<p class="text-xs text-slate-500">{{ form.description.help_text }}</p>{% endif %}
+      {% if form.description.errors %}<p class="text-sm text-red-700">{{ form.description.errors|striptags }}</p>{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="space-y-2">
+      <label for="{{ form.is_optional.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.is_optional.label }}{% if form.is_optional.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.is_optional }}
+      {% if form.is_optional.help_text %}<p class="text-xs text-slate-500">{{ form.is_optional.help_text }}</p>{% endif %}
+      {% if form.is_optional.errors %}<p class="text-sm text-red-700">{{ form.is_optional.errors|striptags }}</p>{% endif %}
+    </div>
+    <div class="space-y-2">
+      <label for="{{ form.is_active.id_for_label }}" class="block text-sm font-semibold text-slate-800">
+        {{ form.is_active.label }}{% if form.is_active.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ form.is_active }}
+      {% if form.is_active.help_text %}<p class="text-xs text-slate-500">{{ form.is_active.help_text }}</p>{% endif %}
+      {% if form.is_active.errors %}<p class="text-sm text-red-700">{{ form.is_active.errors|striptags }}</p>{% endif %}
+    </div>
+  </div>
+
+{% else %}
+  {% for field in form.visible_fields %}
+    <div class="space-y-2">
+      <label for="{{ field.id_for_label }}" class="block text-sm font-semibold text-slate-700">
+        {{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}
+      </label>
+      {{ field }}
+      {% if field.help_text %}<p class="text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+      {% if field.errors %}<p class="text-sm text-red-700">{{ field.errors|striptags }}</p>{% endif %}
+    </div>
+  {% endfor %}
+{% endif %}
+
+<div class="flex flex-wrap items-center justify-between gap-3 pt-4">
+  <button type="button" data-modal-close class="border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50">Cancel</button>
+  <button type="submit" class="ksms-btn ksms-btn-primary px-6 py-2.5 text-sm font-semibold">{{ submit_label }}</button>
+</div>

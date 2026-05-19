@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CBC Report — {{ student.user.get_full_name|default:student.user.username }}</title>
+  <style>
+    @page { size: A4; margin: 16mm 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Helvetica", "Arial", sans-serif; color: #0f172a; font-size: 10.5pt; line-height: 1.35; }
+    h1, h2, h3 { margin: 0; }
+    .header { display: table; width: 100%; border-bottom: 2px solid #0f172a; padding-bottom: 8pt; margin-bottom: 10pt; }
+    .header .left, .header .right { display: table-cell; vertical-align: middle; }
+    .header .left { width: 70%; }
+    .header .right { width: 30%; text-align: right; }
+    .school-name { font-size: 16pt; font-weight: 800; letter-spacing: -0.2pt; }
+    .school-meta { font-size: 9pt; color: #475569; margin-top: 2pt; }
+    .doc-title { margin-top: 12pt; text-align: center; font-size: 13pt; font-weight: 700; letter-spacing: 1.5pt; text-transform: uppercase; color: #0f172a; }
+    .meta-block { display: table; width: 100%; margin-top: 12pt; border: 1px solid #cbd5e1; }
+    .meta-block .cell { display: table-cell; padding: 6pt 8pt; border-right: 1px solid #cbd5e1; vertical-align: top; }
+    .meta-block .cell:last-child { border-right: none; }
+    .meta-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1pt; color: #64748b; font-weight: 700; }
+    .meta-value { font-size: 11pt; font-weight: 700; margin-top: 2pt; }
+
+    .section-title { margin-top: 14pt; margin-bottom: 5pt; font-size: 9pt; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5pt; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3pt; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 5pt 6pt; font-size: 9.5pt; }
+    th { background: #f1f5f9; text-align: left; font-weight: 700; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.6pt; color: #334155; border-bottom: 1px solid #cbd5e1; }
+    td { border-bottom: 1px solid #e2e8f0; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .level-pill { display: inline-block; padding: 1pt 6pt; border-radius: 999px; font-size: 8pt; font-weight: 800; }
+    .level-BE { background: #fee2e2; color: #991b1b; }
+    .level-AE { background: #fef3c7; color: #92400e; }
+    .level-ME { background: #d1fae5; color: #065f46; }
+    .level-EE { background: #dbeafe; color: #1e3a8a; }
+    .subject-heading { font-size: 10pt; font-weight: 800; padding: 6pt 0 2pt 0; color: #0f172a; }
+    .competencies-grid { display: table; width: 100%; }
+    .competencies-grid .row { display: table-row; }
+    .competencies-grid .cell { display: table-cell; width: 50%; padding: 4pt 6pt; border: 1px solid #e2e8f0; vertical-align: middle; }
+    .competency-label { font-size: 9.5pt; }
+    .summary-grid { display: table; width: 100%; margin-top: 8pt; }
+    .summary-grid .cell { display: table-cell; width: 33.3%; padding: 6pt 8pt; border: 1px solid #cbd5e1; }
+    .remarks-block { margin-top: 6pt; padding: 6pt 8pt; border: 1px solid #cbd5e1; min-height: 38pt; }
+    .remark-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1pt; color: #64748b; font-weight: 700; margin-bottom: 3pt; }
+    .signatures { display: table; width: 100%; margin-top: 22pt; }
+    .signatures .cell { display: table-cell; width: 50%; padding: 4pt 8pt; vertical-align: top; }
+    .sig-line { border-top: 1px solid #0f172a; margin-top: 22pt; padding-top: 3pt; font-size: 8.5pt; color: #475569; }
+    .footer { margin-top: 18pt; text-align: center; font-size: 8pt; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="left">
+      <div class="school-name">{{ school.name|default:"School Name" }}</div>
+      <div class="school-meta">
+        {% if school.address %}{{ school.address }}{% endif %}
+        {% if school.county %} · {{ school.county }}{% endif %}
+        {% if school.phone %} · {{ school.phone }}{% endif %}
+        {% if school.email %} · {{ school.email }}{% endif %}
+      </div>
+    </div>
+    <div class="right">
+      {% if school.logo %}<img src="{{ school.logo.url }}" alt="logo" style="max-height: 56pt;">{% endif %}
+    </div>
+  </div>
+
+  <div class="doc-title">Competency-Based Curriculum Report Card</div>
+
+  <div class="meta-block">
+    <div class="cell">
+      <div class="meta-label">Learner</div>
+      <div class="meta-value">{{ student.user.get_full_name|default:student.user.username }}</div>
+    </div>
+    <div class="cell">
+      <div class="meta-label">Admission no.</div>
+      <div class="meta-value">{{ student.admission_number }}</div>
+    </div>
+    <div class="cell">
+      <div class="meta-label">Class</div>
+      <div class="meta-value">{{ enrollment.class_section.display_name }}</div>
+    </div>
+    <div class="cell">
+      <div class="meta-label">Term</div>
+      <div class="meta-value">{{ report.term.get_name_display }} · {{ report.term.academic_year.name }}</div>
+    </div>
+  </div>
+
+  <div class="section-title">Subject performance</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Strand</th>
+        <th>Sub-strand</th>
+        <th class="right">Score</th>
+        <th class="center">Level</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for subject, rows in assessments_by_subject %}
+        <tr><td colspan="5" class="subject-heading">{{ subject.name }}</td></tr>
+        {% for a in rows %}
+          <tr>
+            <td>{{ a.strand.name|default:"—" }}</td>
+            <td>{{ a.sub_strand.name|default:"—" }}</td>
+            <td class="right">{{ a.score|floatformat:1 }}</td>
+            <td class="center"><span class="level-pill level-{{ a.level }}">{{ a.level }}</span></td>
+            <td>{{ a.remarks }}</td>
+          </tr>
+        {% endfor %}
+      {% empty %}
+        <tr><td colspan="5" style="text-align:center; color:#94a3b8;">No assessments recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Core competencies</div>
+  <div class="competencies-grid">
+    {% for cc in core_competencies %}
+      {% if forloop.counter0|divisibleby:2 %}<div class="row">{% endif %}
+        <div class="cell">
+          <span class="competency-label">{{ cc.get_competency_display }}</span>
+          <span class="level-pill level-{{ cc.level }}" style="float:right;">{{ cc.level }}</span>
+        </div>
+      {% if forloop.counter|divisibleby:2 or forloop.last %}</div>{% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="section-title">Attendance & summary</div>
+  <div class="summary-grid">
+    <div class="cell">
+      <div class="meta-label">Average score</div>
+      <div class="meta-value">{% if report.average_score %}{{ report.average_score|floatformat:1 }}{% else %}—{% endif %}</div>
+    </div>
+    <div class="cell">
+      <div class="meta-label">Overall level</div>
+      <div class="meta-value">{% if report.overall_level %}<span class="level-pill level-{{ report.overall_level }}">{{ report.overall_level }}</span>{% else %}—{% endif %}</div>
+    </div>
+    <div class="cell">
+      <div class="meta-label">Attendance</div>
+      <div class="meta-value">
+        {% if report.attendance_percentage is not None %}{{ report.attendance_percentage }}%{% else %}—{% endif %}
+        <span style="font-size:8pt;color:#64748b;font-weight:400;">({{ report.days_present|default:0 }}/{{ report.total_school_days|default:0 }})</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Remarks</div>
+  <div class="remarks-block">
+    <div class="remark-label">Class teacher</div>
+    {{ report.class_teacher_remarks|default:"—"|linebreaksbr }}
+  </div>
+  <div class="remarks-block">
+    <div class="remark-label">Head teacher</div>
+    {{ report.head_teacher_remarks|default:"—"|linebreaksbr }}
+  </div>
+  <div class="remarks-block">
+    <div class="remark-label">Values & PCIs</div>
+    {{ report.values_remarks|default:"—"|linebreaksbr }}
+  </div>
+
+  <div class="signatures">
+    <div class="cell">
+      <div class="sig-line">Class teacher signature & date</div>
+    </div>
+    <div class="cell">
+      <div class="sig-line">Head teacher signature & school stamp</div>
+    </div>
+  </div>
+
+  <div class="footer">Generated by KSMS · {{ school.name }} · Official school record</div>
+</body>
+</html>

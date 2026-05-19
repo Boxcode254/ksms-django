@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Audit Logs{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Admin only</p>
+      <h1 class="mt-2 text-3xl font-black text-slate-950">Audit logs</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-600">Sensitive events are captured with actor, target object, IP address, and request metadata. This supports operational accountability and incident review.</p>
+    </div>
+  </div>
+
+  <div class="space-y-2">
+      {% for audit_log in audit_logs %}
+        <div class="ksms-item-card flex flex-wrap items-start gap-4">
+          <div class="min-w-[140px]">
+            <p class="font-mono text-xs font-semibold text-slate-900">{{ audit_log.created_at|date:"Y-m-d H:i:s" }}</p>
+            <p class="mt-0.5 font-mono text-xs text-slate-500">{{ audit_log.ip_address|default:"n/a" }}</p>
+          </div>
+          <div class="flex-1">
+            <span class="inline-block rounded-full bg-slate-100 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-700">{{ audit_log.get_action_display }}</span>
+            <p class="mt-1 text-xs text-slate-600">{{ audit_log.actor|default:"anonymous" }}</p>
+          </div>
+          <div class="text-right text-xs">
+            <p class="font-semibold text-slate-900">{{ audit_log.object_repr|default:"system" }}</p>
+            <p class="text-slate-400">{{ audit_log.content_type|default:"n/a" }}</p>
+          </div>
+        </div>
+      {% empty %}
+        <p class="rounded-2xl bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">No audit entries have been recorded yet.</p>
+      {% endfor %}
+    </div>
+
+  {% if is_paginated %}
+    <div class="flex items-center justify-between gap-4 text-sm text-slate-600">
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="flex gap-3">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="rounded-full border border-slate-300 px-4 py-2 hover:bg-white">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="rounded-full border border-slate-300 px-4 py-2 hover:bg-white">Next</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

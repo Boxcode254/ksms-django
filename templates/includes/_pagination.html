@@ -1,0 +1,45 @@
+{% if is_paginated %}
+<div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 bg-white">
+  <div class="flex items-center gap-3">
+    <span class="text-xs text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.paginator.num_pages > 10 %}
+    <form method="get" class="flex items-center gap-1" hx-boost="false">
+      {% for key, value in request.GET.items %}
+        {% if key != 'page' %}
+          <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+      {% endfor %}
+      <label for="jump-page-{{ component_id }}" class="text-xs text-slate-500">Go to:</label>
+      <input type="number" id="jump-page-{{ component_id }}" name="page" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}"
+             class="w-14 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+             hx-on::keydown="if(event.key==='Enter'){this.form.submit();}">
+      <button type="submit" class="ksms-btn ksms-btn-soft text-xs" style="padding: 0.2rem 0.5rem;">Go</button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="flex items-center gap-2">
+    {% if page_obj.has_previous %}
+      {% if htmx_target %}
+        <a href="?{{ query_string }}page={{ page_obj.previous_page_number }}"
+           hx-get="?{{ query_string }}page={{ page_obj.previous_page_number }}"
+           hx-target="#{{ htmx_target }}" hx-push-url="true"
+           class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Previous</a>
+      {% else %}
+        <a href="?{{ query_string }}page={{ page_obj.previous_page_number }}"
+           class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Previous</a>
+      {% endif %}
+    {% endif %}
+    {% if page_obj.has_next %}
+      {% if htmx_target %}
+        <a href="?{{ query_string }}page={{ page_obj.next_page_number }}"
+           hx-get="?{{ query_string }}page={{ page_obj.next_page_number }}"
+           hx-target="#{{ htmx_target }}" hx-push-url="true"
+           class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Next</a>
+      {% else %}
+        <a href="?{{ query_string }}page={{ page_obj.next_page_number }}"
+           class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Next</a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}

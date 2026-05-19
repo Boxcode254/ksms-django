@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}KSMS | CBC Report — {{ report.enrollment.student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">CBC Report</p>
+      <h1 class="mt-2 text-3xl font-black text-slate-950">{{ report.enrollment.student.user.get_full_name|default:report.enrollment.student.user.username }}</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        Adm. {{ report.enrollment.student.admission_number }} · {{ report.enrollment.class_section.display_name }} ·
+        {{ report.term.get_name_display }} {{ report.term.academic_year.name }}
+      </p>
+    </div>
+    <div class="flex gap-2">
+      {% if can_edit %}
+        <a href="{% url 'cbc:report-edit' report.pk %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white">Edit</a>
+      {% endif %}
+      {% if can_refresh_attendance %}
+        <form method="post" action="{% url 'cbc:report-refresh-attendance' report.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white">Refresh attendance</button>
+        </form>
+      {% endif %}
+      <a href="{% url 'cbc:report-pdf' report.pk %}" class="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600">Download PDF</a>
+    </div>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-3">
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Average score</p>
+      <p class="mt-2 text-2xl font-black text-slate-900">{% if report.average_score %}{{ report.average_score|floatformat:1 }}{% else %}—{% endif %}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Overall level</p>
+      <p class="mt-2 text-2xl font-black text-emerald-700">{% if report.overall_level %}{{ report.overall_level }}{% else %}—{% endif %}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Attendance</p>
+      <p class="mt-2 text-2xl font-black text-slate-900">
+        {% if report.attendance_percentage is not None %}{{ report.attendance_percentage }}%{% else %}—{% endif %}
+      </p>
+      <p class="text-xs text-slate-500">{{ report.days_present|default:0 }} / {{ report.total_school_days|default:0 }} days</p>
+    </div>
+  </div>
+
+  <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Strand assessments</h2>
+    {% for subject, rows in assessments_by_subject %}
+      <h3 class="mt-4 text-base font-bold text-slate-900">{{ subject.name }}</h3>
+      <div class="mt-2 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-xs uppercase tracking-[0.16em] text-slate-500">
+          <tr class="border-b border-slate-200">
+            <th class="px-2 py-2 text-left">Strand</th>
+            <th class="px-2 py-2 text-left">Sub-strand</th>
+            <th class="px-2 py-2 text-right">Score</th>
+            <th class="px-2 py-2 text-center">Level</th>
+            <th class="px-2 py-2 text-left">Remarks</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for a in rows %}
+            <tr>
+              <td class="px-2 py-2 text-slate-700">{{ a.strand.name|default:"—" }}</td>
+              <td class="px-2 py-2 text-slate-700">{{ a.sub_strand.name|default:"—" }}</td>
+              <td class="px-2 py-2 text-right font-mono">{{ a.score|floatformat:1 }}</td>
+              <td class="px-2 py-2 text-center">
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">{{ a.level }}</span>
+              </td>
+              <td class="px-2 py-2 text-xs text-slate-500">{{ a.remarks }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% empty %}
+      <p class="mt-4 text-sm text-slate-500">No assessments recorded yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Core competencies</h2>
+    <div class="mt-3 grid gap-2 sm:grid-cols-2">
+      {% for cc in core_competencies %}
+        <div class="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-2">
+          <p class="text-sm text-slate-900">{{ cc.get_competency_display }}</p>
+          <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">{{ cc.level }}</span>
+        </div>
+      {% empty %}
+        <p class="text-sm text-slate-500">No core competencies recorded.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Remarks</h2>
+    <div class="mt-3 grid gap-4 sm:grid-cols-2">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Class teacher</p>
+        <p class="mt-1 text-sm text-slate-700 whitespace-pre-line">{{ report.class_teacher_remarks|default:"—" }}</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Head teacher</p>
+        <p class="mt-1 text-sm text-slate-700 whitespace-pre-line">{{ report.head_teacher_remarks|default:"—" }}</p>
+      </div>
+      <div class="sm:col-span-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Values & PCIs</p>
+        <p class="mt-1 text-sm text-slate-700 whitespace-pre-line">{{ report.values_remarks|default:"—" }}</p>
+      </div>
+      <div class="sm:col-span-2">
+        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">General</p>
+        <p class="mt-1 text-sm text-slate-700 whitespace-pre-line">{{ report.general_remark|default:"—" }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

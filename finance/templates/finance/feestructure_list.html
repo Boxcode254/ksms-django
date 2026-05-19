@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Fee Structures{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="space-y-1">
+      <nav class="ksms-breadcrumbs" aria-label="Breadcrumb">
+        <a href="{% url 'finance:invoice-list' %}">Finance</a>
+        <span class="sep" aria-hidden="true">/</span>
+        <span class="current" aria-current="page">Fee Structures</span>
+      </nav>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">Fee structures</h1>
+      <p class="text-xs text-slate-500">Define and manage term-based fee schedules for each class section.</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="{% url 'finance:invoice-list' %}" class="ksms-btn ksms-btn-secondary">Invoices</a>
+      {% if perms.finance.add_feestructure %}
+        <a href="{{ create_url }}" hx-boost="false" hx-get="{{ create_url }}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="ksms-btn ksms-btn-primary">+ New fee structure</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+    <form method="get" action="{% url 'finance:feestructure-list' %}" class="grid gap-4 lg:grid-cols-3 xl:grid-cols-6" hx-get="{% url 'finance:feestructure-list' %}" hx-target="#feestructure-results" hx-push-url="true" hx-trigger="submit, input from:input[name='q'] delay:300ms, search from:input[name='q'], change from:select">
+      {% for field in filter_form %}
+        {% if field.name != 'school' or request.user.is_superuser %}
+          <div class="space-y-2 {% if field.name == 'q' %}xl:col-span-2{% endif %}">
+            <label for="{{ field.id_for_label }}" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ field.label }}</label>
+            {{ field }}
+          </div>
+        {% endif %}
+      {% endfor %}
+      <div class="flex items-end gap-3 lg:col-span-3 xl:col-span-6">
+        <button type="submit" class="ksms-btn ksms-btn-primary">Apply filters</button>
+        <a href="{% url 'finance:feestructure-list' %}" class="ksms-btn ksms-btn-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <div id="feestructure-results">
+    {% include "finance/partials/feestructure_results.html" %}
+  </div>
+</section>
+{% endblock %}

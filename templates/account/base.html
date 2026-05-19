@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch">
+  <aside class="ksms-auth-shell hidden overflow-hidden p-8 text-slate-100 lg:block">
+    <p class="ksms-landing-display text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">EduCare Access</p>
+    <h2 class="ksms-landing-display mt-4 text-3xl font-bold leading-tight">Secure staff and parent sign in.</h2>
+    <p class="mt-4 text-sm leading-7 text-slate-200/90">Use your verified account to access attendance, grades, invoices, and reporting workflows.</p>
+    <div class="mt-8 space-y-3 text-sm">
+      <div class="rounded-2xl border border-slate-500/40 bg-slate-900/35 px-4 py-3">Role-aware navigation and permissions</div>
+      <div class="rounded-2xl border border-slate-500/40 bg-slate-900/35 px-4 py-3">Secure authentication and verification</div>
+      <div class="rounded-2xl border border-slate-500/40 bg-slate-900/35 px-4 py-3">Governance-ready activity traceability</div>
+    </div>
+  </aside>
+
+  <div class="mx-auto w-full max-w-lg">
+    <div class="ksms-auth-card p-6 sm:p-8">
+      {% block account_content %}{% endblock %}
+    </div>
+  </div>
+</section>
+{% endblock %}

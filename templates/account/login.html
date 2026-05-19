@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load form_tags %}
+{% block title %}EduTrack SMS | Log in{% endblock %}
+{% block content %}
+<section class="min-h-[calc(100vh-74px)] px-3 pb-4 pt-2 sm:px-5 sm:pt-4 lg:px-8 lg:pb-8">
+  <div class="ksms-login-screen ksms-landing-enter flex min-h-[calc(100vh-110px)] items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
+    <div class="ksms-login-icon-layer" aria-hidden="true"></div>
+
+    <div class="ksms-login-card">
+      <div class="ksms-login-card-head text-center">
+        {% load static %}
+        <img src="{% static 'img/logo.png' %}" alt="KSMS Logo" class="mx-auto mb-4 h-16 w-16 object-contain">
+        <h1 class="ksms-login-card-title">Staff Login</h1>
+        <p class="mt-2 text-sm text-blue-100">Enter your credentials to access the system</p>
+      </div>
+
+      <div class="bg-slate-50 px-6 py-6 sm:px-8 sm:py-7">
+        <form method="post" action="{% url 'account_login' %}" class="space-y-4" novalidate>
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+            <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          {% for field in form %}
+            <div class="space-y-2">
+              {% if field.name == 'login' %}
+                <label for="{{ field.id_for_label }}" class="ksms-login-field-label">Username</label>
+              {% elif field.name == 'password' %}
+                <label for="{{ field.id_for_label }}" class="ksms-login-field-label">Password</label>
+              {% else %}
+                <label for="{{ field.id_for_label }}" class="ksms-login-field-label">{{ field.label }}</label>
+              {% endif %}
+              {{ field|add_class:"ksms-login-input" }}
+              {% if field.errors %}
+                <p class="text-sm text-red-700">{{ field.errors|striptags }}</p>
+              {% endif %}
+            </div>
+          {% endfor %}
+
+          {% if redirect_field_value %}
+            <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+          {% endif %}
+
+          <button type="submit" class="ksms-login-submit mt-2">
+            Sign In
+          </button>
+        </form>
+
+        <div class="mt-5 text-center text-sm text-slate-600">
+          <span>Forgot your password?</span>
+          <a href="{% url 'account_reset_password' %}" class="font-semibold text-blue-700 hover:text-blue-900">Reset Password</a>
+        </div>
+
+        <div class="mt-7 text-center">
+          <p class="text-xl font-semibold text-slate-800">Contact Support for Help</p>
+          <p class="mt-1 text-3xl font-bold text-amber-500">+254712372073</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

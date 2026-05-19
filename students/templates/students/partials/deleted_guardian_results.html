@@ -1,0 +1,79 @@
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-100 text-sm">
+    <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <tr>
+        <th scope="col" class="px-6 py-4 font-semibold">Name</th>
+        <th scope="col" class="px-6 py-4 font-semibold">Email</th>
+        <th scope="col" class="px-6 py-4 font-semibold">Deleted At</th>
+        <th scope="col" class="px-6 py-4 text-right font-semibold">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100 bg-white">
+      {% for guardian in guardians %}
+        <tr class="hover:bg-red-50/30 transition-colors duration-150">
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 flex-shrink-0 rounded-full bg-red-50 text-red-600 border border-red-100 flex items-center justify-center font-bold text-sm tracking-wide shadow-sm">
+                {% if guardian.user.first_name %}
+                  {{ guardian.user.first_name|slice:":1"|upper }}{{ guardian.user.last_name|slice:":1"|upper }}
+                {% else %}
+                  {{ guardian.user.username|slice:":2"|upper }}
+                {% endif %}
+              </div>
+              <span class="font-semibold text-slate-900">
+                {{ guardian.user.get_full_name|default:guardian.user.username }}
+              </span>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-slate-600">
+            {{ guardian.user.email|default:"—" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-slate-600">
+            {{ guardian.deleted_at|date:"d M Y, H:i" }}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-right">
+            <div class="flex items-center justify-end gap-2">
+              <form method="post" action="{% url 'students:guardian-restore' guardian.pk %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center transition-all" title="Restore Guardian">
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4" class="px-6 py-12 text-center text-sm text-slate-500">
+            <div class="flex flex-col items-center justify-center gap-2">
+              <svg class="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>No deleted guardian records.</span>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if is_paginated %}
+  <div class="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-5">
+    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+      <p class="text-xs text-slate-400">
+        Showing page <span class="font-semibold text-slate-600">{{ page_obj.number }}</span> of <span class="font-semibold text-slate-600">{{ page_obj.paginator.num_pages }}</span>
+      </p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Next</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}KSMS | CBC History — {{ student.user.get_full_name }}{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">CBC · History</p>
+    <h1 class="mt-2 text-3xl font-black text-slate-950">{{ student.user.get_full_name|default:student.user.username }}</h1>
+    <p class="mt-1 text-sm text-slate-600">Adm. {{ student.admission_number }} — all CBC report cards across terms.</p>
+  </div>
+
+  <div class="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full text-sm">
+      <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold">Term</th>
+          <th class="px-4 py-3 text-left font-semibold">Class</th>
+          <th class="px-4 py-3 text-right font-semibold">Average</th>
+          <th class="px-4 py-3 text-center font-semibold">Level</th>
+          <th class="px-4 py-3 text-right font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in reports %}
+          <tr>
+            <td class="px-4 py-3 text-slate-700">{{ r.term.get_name_display }} · {{ r.term.academic_year.name }}</td>
+            <td class="px-4 py-3 text-slate-700">{{ r.enrollment.class_section.display_name }}</td>
+            <td class="px-4 py-3 text-right font-mono">{% if r.average_score %}{{ r.average_score|floatformat:1 }}{% else %}—{% endif %}</td>
+            <td class="px-4 py-3 text-center">
+              {% if r.overall_level %}<span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">{{ r.overall_level }}</span>{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="{% url 'cbc:report-detail' r.pk %}" class="text-sm font-semibold text-sky-700 hover:underline">View</a>
+              <span class="text-slate-300">·</span>
+              <a href="{% url 'cbc:report-pdf' r.pk %}" class="text-sm font-semibold text-emerald-700 hover:underline">PDF</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No CBC reports yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

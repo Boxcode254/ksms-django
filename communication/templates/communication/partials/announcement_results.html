@@ -1,0 +1,61 @@
+{% load tz %}
+
+{% if announcements %}
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    {% for announcement in announcements %}
+      {% with user=request.user %}
+      <article class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+            {% if announcement.audience == 'all' %}bg-sky-50 text-sky-700
+            {% elif announcement.audience == 'students' %}bg-emerald-50 text-emerald-700
+            {% elif announcement.audience == 'parents' %}bg-violet-50 text-violet-700
+            {% else %}bg-amber-50 text-amber-700{% endif %}">
+            {{ announcement.get_audience_display }}
+          </span>
+          {% if announcement.is_active %}
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Active
+            </span>
+          {% else %}
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-500">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>Inactive
+            </span>
+          {% endif %}
+        </div>
+        <h2 class="text-sm font-semibold leading-snug text-slate-900">
+          <a href="{% url 'communication:announcement-detail' announcement.pk %}" class="hover:text-[#1a4989]">{{ announcement.title }}</a>
+        </h2>
+        <p class="flex-1 line-clamp-3 text-xs text-slate-500">{{ announcement.body }}</p>
+        <div class="mt-auto space-y-0.5 text-xs text-slate-400">
+          <div>{{ announcement.school.name }}</div>
+          <div>{% if announcement.author %}By {{ announcement.author.get_full_name|default:announcement.author.username }} &middot; {% endif %}{{ announcement.created_at|date:"d M Y" }}</div>
+        </div>
+        {% if user.is_admin_role or announcement.author == user %}
+          <div class="flex gap-2 border-t border-slate-100 pt-3">
+            <a href="{% url 'communication:announcement-update' announcement.pk %}" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</a>
+            <a href="{% url 'communication:announcement-delete' announcement.pk %}" class="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">Delete</a>
+          </div>
+        {% endif %}
+      </article>
+      {% endwith %}
+    {% endfor %}
+  </div>
+  {% if is_paginated %}
+    <nav class="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600">
+      <span class="text-xs text-slate-400">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" hx-get="?page={{ page_obj.previous_page_number }}" hx-target="#announcement-results" hx-push-url="true" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" hx-get="?page={{ page_obj.next_page_number }}" hx-target="#announcement-results" hx-push-url="true" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Next</a>
+        {% endif %}
+      </div>
+    </nav>
+  {% endif %}
+{% else %}
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-12 text-center text-sm text-slate-500">
+    No announcements match your filters.
+  </div>
+{% endif %}

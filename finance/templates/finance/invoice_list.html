@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Invoices{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="space-y-1">
+      <nav class="ksms-breadcrumbs" aria-label="Breadcrumb">
+        <a href="{% url 'core:dashboard' %}">Dashboard</a>
+        <span class="sep" aria-hidden="true">/</span>
+        <span class="current" aria-current="page">{% if user.is_parent_role %}My invoices{% else %}Invoices{% endif %}</span>
+      </nav>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">
+        {% if user.is_parent_role %}My invoices{% else %}Invoices{% endif %}
+      </h1>
+      <p class="text-xs text-slate-500">
+        {% if user.is_parent_role %}
+          View fee invoices for your enrolled children and track payment status.
+        {% else %}
+          Track all student invoices, payment balances, and fee collection across the school.
+        {% endif %}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      {% if user.is_admin_role or user.is_superuser %}
+        <a href="{% url 'finance:fee-arrear-list' %}" class="ksms-btn ksms-btn-primary">Review arrears</a>
+        <a href="{% url 'reports:fees' %}" class="ksms-btn ksms-btn-secondary">Fee report</a>
+        <a href="{% url 'finance:feestructure-list' %}" class="ksms-btn ksms-btn-soft">Fee structures</a>
+        <a href="{% url 'finance:invoice-deleted-list' %}" class="ksms-btn ksms-btn-soft" style="color: #dc2626;">Deleted invoices</a>
+        <a href="{% url 'finance:payment-deleted-list' %}" class="ksms-btn ksms-btn-soft" style="color: #dc2626;">Deleted payments</a>
+      {% endif %}
+      {% if perms.finance.add_invoice %}
+        <a href="{% url 'finance:invoice-create' %}" hx-boost="false" hx-get="{% url 'finance:invoice-create' %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="ksms-btn ksms-btn-secondary">+ New invoice</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+    <form method="get" action="{% url 'finance:invoice-list' %}" class="grid gap-4 lg:grid-cols-2 xl:grid-cols-4" hx-get="{% url 'finance:invoice-list' %}" hx-target="#invoice-results" hx-push-url="true" hx-trigger="submit, input from:input[name='q'] delay:300ms, search from:input[name='q'], change from:select">
+      {% for field in filter_form %}
+        <div class="space-y-2 {% if field.name == 'q' %}xl:col-span-2{% endif %}">
+          <label for="{{ field.id_for_label }}" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ field.label }}</label>
+          {{ field }}
+        </div>
+      {% endfor %}
+      <div class="flex items-end gap-3 lg:col-span-2 xl:col-span-4">
+        <button type="submit" class="ksms-btn ksms-btn-primary relative">
+          <span class="htmx-indicator-hidden">Apply filters</span>
+          <svg class="htmx-indicator hidden h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </button>
+        <a href="{% url 'finance:invoice-list' %}" class="ksms-btn ksms-btn-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <div id="invoice-results">
+    {% include "finance/partials/invoice_results.html" %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% load academics_tags %}
+<div>
+  {% if entries %}
+    {# Print-only header #}
+    <div class="hidden print:block print:mb-3">
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 print:text-slate-900">{{ school_name|default:"School" }} — {{ term_name|default:"Current Term" }}</p>
+      <p class="text-[10px] text-slate-400 print:text-slate-600">Printed on {% now "j M Y" %}</p>
+    </div>
+    <div class="overflow-x-auto print:overflow-visible">
+      <table class="min-w-full table-fixed divide-y divide-slate-100 text-sm print:divide-y-0">
+        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <tr>
+            <th class="w-28 px-4 py-3 font-semibold">Time</th>
+            {% for weekday_value, weekday_label in weekdays %}
+              <th class="min-w-[180px] px-4 py-3 font-semibold">{{ weekday_label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white align-top">
+          {% for time_slot in time_slots %}
+            <tr>
+              <td class="px-4 py-3 font-mono text-xs text-slate-500">{{ time_slot|time:"H:i" }}</td>
+              {% for weekday_value, weekday_label in weekdays %}
+                <td class="px-2 py-2">
+                  {% timetable_cell_entries entry_grid time_slot weekday_value as cell_entries %}
+                  {% if cell_entries %}
+                    <div class="space-y-2">
+                      {% for entry in cell_entries %}
+                        {% with colors=entry.subject|subject_color %}
+                        <article class="rounded-xl border px-3 py-2 text-xs" style="border-color: {{ colors.0 }}; background-color: {{ colors.1 }};">
+                          <p class="font-semibold flex items-center gap-1.5" style="color: {{ colors.2 }};">
+                            <span class="rounded bg-white/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700">{{ entry.subject.code }}</span>
+                            {{ entry.subject.name }} — {{ entry.teacher.user.get_full_name|default:entry.teacher.user.username }}
+                          </p>
+                          <p class="mt-1" style="color: {{ colors.2 }};">
+                            {{ entry.start_time|time:"H:i" }} - {{ entry.end_time|time:"H:i" }}
+                            {% if entry.period_label %} · {{ entry.period_label }}{% endif %}
+                            {% if entry.room_name %} · Room {{ entry.room_name }}{% endif %}
+                          </p>
+                          {% if perms.academics.change_timetableentry %}
+                            <div class="mt-2">
+                              <a href="{% url 'academics:timetable-update' entry.pk %}" hx-boost="false" hx-get="{% url 'academics:timetable-update' entry.pk %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="inline-flex rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">Edit</a>
+                            </div>
+                          {% endif %}
+                        </article>
+                        {% endwith %}
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="h-12 rounded-lg border border-dashed border-slate-200 bg-slate-50/60"></div>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if is_paginated %}
+      <div class="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600 print:hidden">
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex gap-3">
+          {% if page_obj.has_previous %}
+            <a href="?{% query_update request.GET page=page_obj.previous_page_number %}" hx-get="?{% query_update request.GET page=page_obj.previous_page_number %}" hx-target="#timetable-results" hx-push-url="true" class="ksms-btn ksms-btn-soft">Previous</a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?{% query_update request.GET page=page_obj.next_page_number %}" hx-get="?{% query_update request.GET page=page_obj.next_page_number %}" hx-target="#timetable-results" hx-push-url="true" class="ksms-btn ksms-btn-soft">Next</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="rounded-2xl bg-slate-50 px-6 py-12 text-center text-sm text-slate-500">No timetable entries match the current filters.</div>
+  {% endif %}
+</div>

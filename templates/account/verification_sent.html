@@ -1,0 +1,12 @@
+{% extends "account/base.html" %}
+{% block title %}KSMS | Verify email{% endblock %}
+{% block account_content %}
+<div class="space-y-4 text-center">
+  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Verification</p>
+  <h1 class="text-3xl font-black text-slate-950">Verify your email address</h1>
+  <p class="text-sm leading-7 text-slate-600">
+    We have sent an email verification link. Your account stays at the lowest privilege level until the address is confirmed.
+  </p>
+  <a href="{% url 'account_login' %}" class="inline-flex rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Return to login</a>
+</div>
+{% endblock %}

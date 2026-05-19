@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Take Attendance{% endblock %}
+
+{% block content %}
+<div class="space-y-6" data-show-toast="{% if show_success_toast %}1{% else %}0{% endif %}">
+  <div id="attendance-toast" class="pointer-events-none fixed right-4 top-4 z-50 hidden rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-semibold text-emerald-800 shadow-lg">
+    Attendance saved successfully.
+  </div>
+
+  <!-- Header Card -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+    <div class="space-y-3">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Attendance</p>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900">Take Daily Class Attendance</h1>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Mark All Present -->
+      <button type="button" id="mark-all-present" class="w-10 h-10 rounded-full bg-[#1a4989] hover:bg-[#1f57a0] text-white flex items-center justify-center transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-300" title="Mark All Present">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
+
+      <!-- Save Attendance -->
+      <button type="submit" form="attendance-save-form" id="save-attendance-btn" class="w-10 h-10 rounded-full bg-[#1a4989] hover:bg-[#1f57a0] text-white flex items-center justify-center transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-300 disabled:bg-slate-300 disabled:text-slate-600 disabled:cursor-not-allowed" {% if not selected_class or not can_submit_register %}disabled{% endif %} title="Save Attendance">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  {% if access_warning %}
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      {{ access_warning }}
+    </div>
+  {% endif %}
+
+  {% if no_classes_message %}
+    <div class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+      {{ no_classes_message }}
+    </div>
+  {% endif %}
+
+  {% if selected_class and not can_submit_register %}
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      You can view this assigned class roster, but only the class teacher (or school admin) can submit the official full class register.
+    </div>
+  {% endif %}
+
+  <!-- Controls Form -->
+  <form id="attendance-controls" method="get" action="{% url 'attendance:daily-list' %}" class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm" hx-get="{% url 'attendance:daily-list' %}" hx-target="#attendance-content" hx-push-url="true" hx-trigger="submit, keyup changed delay:300ms from:#search-input, change from:#class-section-select, change from:#attendance-date-input">
+    <div class="grid gap-4 md:grid-cols-3">
+      <div class="space-y-1.5">
+        <label for="class-section-select" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Class</label>
+        <select id="class-section-select" name="class_section" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:bg-white focus:ring-2 focus:ring-sky-300 focus:border-[#1a4989] transition-all" {% if not classes %}disabled{% endif %}>
+          {% for class_item in classes %}
+            <option value="{{ class_item.pk }}" {% if selected_class and class_item.pk == selected_class.pk %}selected{% endif %}>{{ class_item.display_name }}</option>
+          {% empty %}
+            <option value="">No class available</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="space-y-1.5">
+        <label for="attendance-date-input" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</label>
+        <input id="attendance-date-input" type="date" name="attendance_date" value="{{ attendance_date|date:'Y-m-d' }}" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:bg-white focus:ring-2 focus:ring-sky-300 focus:border-[#1a4989] transition-all">
+      </div>
+      <div class="space-y-1.5">
+        <label for="search-input" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider">Search learner</label>
+        <input id="search-input" type="text" name="q" value="{{ query }}" placeholder="Search student name or admission number" class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:bg-white focus:ring-2 focus:ring-sky-300 focus:border-[#1a4989] transition-all placeholder:text-slate-400">
+      </div>
+    </div>
+  </form>
+
+  <!-- Dynamic Content: Subtitle + Student List -->
+  <div id="attendance-content">
+    <form id="attendance-save-form" method="post" action="{% url 'attendance:daily-list' %}">
+      {% csrf_token %}
+      <input type="hidden" name="class_section" id="save-class-section" value="{% if selected_class %}{{ selected_class.pk }}{% endif %}">
+      <input type="hidden" name="attendance_date" id="save-attendance-date" value="{{ attendance_date|date:'Y-m-d' }}">
+
+      {% include "attendance/partials/take_attendance_content.html" %}
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  function getRows() {
+    return Array.from(document.querySelectorAll('.attendance-row'));
+  }
+
+  function applyStatusVisual(row, status) {
+    row.querySelectorAll('[data-status-btn]').forEach(function (btn) {
+      btn.classList.remove('ring-2', 'ring-offset-2', 'ring-sky-400', 'scale-[1.02]');
+      if (btn.dataset.status === status) {
+        btn.classList.add('ring-2', 'ring-offset-2', 'ring-sky-400', 'scale-[1.02]');
+      }
+    });
+  }
+
+  function updateCounters() {
+    var present = 0;
+    var absent = 0;
+    var late = 0;
+
+    getRows().forEach(function (row) {
+      var input = row.querySelector('input[type="hidden"][data-attendance-input]');
+      if (!input) {
+        return;
+      }
+      if (input.value === 'present') {
+        present += 1;
+      } else if (input.value === 'absent') {
+        absent += 1;
+      } else if (input.value === 'late') {
+        late += 1;
+      }
+    });
+
+    var presentNode = document.getElementById('present-count');
+    var absentNode = document.getElementById('absent-count');
+    var lateNode = document.getElementById('late-count');
+
+    if (presentNode) presentNode.textContent = String(present);
+    if (absentNode) absentNode.textContent = String(absent);
+    if (lateNode) lateNode.textContent = String(late);
+  }
+
+  window.markAttendance = function markAttendance(button, enrollmentId, status) {
+    var row = button.closest('.attendance-row');
+    if (!row) {
+      return;
+    }
+
+    var hiddenInput = row.querySelector('input[data-attendance-input]');
+    if (!hiddenInput) {
+      return;
+    }
+
+    hiddenInput.value = status;
+    applyStatusVisual(row, status);
+    updateCounters();
+  };
+
+  function markAllPresent() {
+    getRows().forEach(function (row) {
+      var presentButton = row.querySelector('[data-status-btn][data-status="present"]');
+      if (presentButton) {
+        window.markAttendance(presentButton, presentButton.dataset.enrollmentId, 'present');
+      }
+    });
+  }
+
+  function syncSaveContext() {
+    var classSelect = document.getElementById('class-section-select');
+    var dateInput = document.getElementById('attendance-date-input');
+    var saveClass = document.getElementById('save-class-section');
+    var saveDate = document.getElementById('save-attendance-date');
+
+    if (classSelect && saveClass) {
+      saveClass.value = classSelect.value;
+    }
+    if (dateInput && saveDate) {
+      saveDate.value = dateInput.value;
+    }
+  }
+
+  function showSuccessToast() {
+    var container = document.querySelector('div[data-show-toast]');
+    var toast = document.getElementById('attendance-toast');
+    if (!container || !toast || container.dataset.showToast !== '1') {
+      return;
+    }
+
+    toast.classList.remove('hidden');
+    setTimeout(function () {
+      toast.classList.add('hidden');
+    }, 2500);
+  }
+
+  function initializeRows() {
+    getRows().forEach(function (row) {
+      var hiddenInput = row.querySelector('input[data-attendance-input]');
+      if (!hiddenInput) {
+        return;
+      }
+      applyStatusVisual(row, hiddenInput.value);
+    });
+    updateCounters();
+  }
+
+  var markAllButton = document.getElementById('mark-all-present');
+  if (markAllButton) {
+    markAllButton.addEventListener('click', markAllPresent);
+  }
+
+  var controlsForm = document.getElementById('attendance-controls');
+  if (controlsForm) {
+    controlsForm.addEventListener('change', syncSaveContext);
+  }
+
+  document.addEventListener('htmx:afterSwap', function (event) {
+    if (event.detail && event.detail.target && event.detail.target.id === 'attendance-content') {
+      syncSaveContext();
+      initializeRows();
+    }
+  });
+
+  syncSaveContext();
+  initializeRows();
+  showSuccessToast();
+})();
+</script>
+{% endblock %}

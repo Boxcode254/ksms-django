@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}KSMS | CBC Reports{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">CBC Reports</p>
+      <h1 class="mt-2 text-3xl font-black text-slate-950">Competency-Based Curriculum Reports</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+        Strand-level assessments, core-competency ratings, and printable report cards for every learner.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="{% url 'cbc:strand-list' %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white">Strand catalog</a>
+      <a href="{% url 'cbc:report-bulk' %}" class="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-400 cursor-not-allowed" title="Coming soon">Bulk generate</a>
+      <a href="{% url 'cbc:report-create' %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">+ New report</a>
+    </div>
+  </div>
+
+  <form method="get" class="grid gap-3 rounded-3xl border border-slate-200 bg-white p-5 sm:grid-cols-3">
+    <div>
+      <label for="term" class="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Term</label>
+      <select id="term" name="term" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        <option value="">All terms</option>
+        {% for term in terms %}
+          <option value="{{ term.pk }}" {% if request.GET.term == term.pk|stringformat:"s" %}selected{% endif %}>{{ term.get_name_display }} · {{ term.academic_year.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="class_section" class="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Class section</label>
+      <select id="class_section" name="class_section" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+        <option value="">All classes</option>
+        {% for section in class_sections %}
+          <option value="{{ section.pk }}" {% if request.GET.class_section == section.pk|stringformat:"s" %}selected{% endif %}>{{ section.display_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex items-end gap-3">
+      <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Apply filters</button>
+      <a href="{% url 'cbc:report-list' %}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Reset</a>
+    </div>
+  </form>
+
+  <div class="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full text-sm">
+      <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold">Student</th>
+          <th class="px-4 py-3 text-left font-semibold">Class</th>
+          <th class="px-4 py-3 text-left font-semibold">Term</th>
+          <th class="px-4 py-3 text-right font-semibold">Average</th>
+          <th class="px-4 py-3 text-center font-semibold">Level</th>
+          <th class="px-4 py-3 text-right font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in reports %}
+          <tr>
+            <td class="px-4 py-3">
+              <p class="font-semibold text-slate-900">{{ r.enrollment.student.user.get_full_name|default:r.enrollment.student.user.username }}</p>
+              <p class="text-xs text-slate-500 font-mono">{{ r.enrollment.student.admission_number }}</p>
+            </td>
+            <td class="px-4 py-3 text-slate-700">{{ r.enrollment.class_section.display_name }}</td>
+            <td class="px-4 py-3 text-slate-700">{{ r.term.get_name_display }} · {{ r.term.academic_year.name }}</td>
+            <td class="px-4 py-3 text-right font-mono text-slate-700">
+              {% if r.average_score %}{{ r.average_score|floatformat:1 }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-center">
+              {% if r.overall_level %}
+                <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">{{ r.overall_level }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <a href="{% url 'cbc:report-detail' r.pk %}" class="text-sm font-semibold text-sky-700 hover:underline">View</a>
+              <span class="text-slate-300">·</span>
+              <a href="{% url 'cbc:report-edit' r.pk %}" class="text-sm font-semibold text-slate-700 hover:underline">Edit</a>
+              <span class="text-slate-300">·</span>
+              <a href="{% url 'cbc:report-pdf' r.pk %}" class="text-sm font-semibold text-emerald-700 hover:underline">PDF</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-500">No CBC reports yet. Click <em>+ New report</em> to start.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if is_paginated %}
+    <div class="flex items-center justify-end gap-2 text-sm text-slate-600">
+      {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="rounded-full border border-slate-300 px-3 py-1 hover:bg-white">Previous</a>{% endif %}
+      <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="rounded-full border border-slate-300 px-3 py-1 hover:bg-white">Next</a>{% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

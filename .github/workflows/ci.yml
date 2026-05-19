@@ -1,0 +1,116 @@
+name: KSMS CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ksms_test
+          POSTGRES_USER: ksms
+          POSTGRES_PASSWORD: ksms_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev libmagic1
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-prod.txt
+
+      - name: Create .env for CI
+        run: |
+          cat > .env << EOF
+          SECRET_KEY=ci-test-secret-key
+          DEBUG=False
+          USE_SQLITE=False
+          DB_NAME=ksms_test
+          DB_USER=ksms
+          DB_PASSWORD=ksms_test_password
+          DB_HOST=localhost
+          DB_PORT=5432
+          CELERY_BROKER_URL=redis://localhost:6379/0
+          CELERY_RESULT_BACKEND=redis://localhost:6379/0
+          CELERY_TASK_ALWAYS_EAGER=True
+          EMAIL_BACKEND=django.core.mail.backends.locmem.EmailBackend
+          DEFAULT_FROM_EMAIL=test@ksms.local
+          SECURE_SSL_REDIRECT=False
+          SESSION_COOKIE_SECURE=False
+          CSRF_COOKIE_SECURE=False
+          SECURE_HSTS_SECONDS=0
+          DEMO_MODE=False
+          MPESA_ENV=sandbox
+          MPESA_STK_ENABLED=False
+          AFRICASTALKING_ENABLED=False
+          ARREARS_ENABLED=True
+          EOF
+
+      - name: Run Django checks
+        run: python manage.py check
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run deploy checks
+        run: python manage.py check --deploy
+
+      - name: Run tests
+        run: python manage.py test --verbosity=2 --failfast
+
+      - name: Collect static (verify no missing files)
+        run: python manage.py collectstatic --noinput --clear
+
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install security tools
+        run: pip install bandit safety
+
+      - name: Run Bandit security scan
+        run: bandit -r . -ll -x .venv,*/migrations/*,*/tests/* --skip B101
+
+      - name: Run Safety check
+        run: safety check -r requirements-prod.txt

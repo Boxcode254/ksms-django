@@ -1,0 +1,20 @@
+{% load attendance_tags %}
+
+<!-- Subtitle + Stats (dynamic, updates with HTMX) -->
+<div class="mb-3">
+  {% if selected_class %}
+    <p class="text-xs text-slate-500">
+      {{ selected_class.display_name }} &middot; {{ attendance_date|date:"l, j F Y" }}
+      &middot; <span class="text-emerald-600 font-semibold">Present <span id="present-count">{{ present_count }}</span></span>
+      &middot; <span class="text-red-600 font-semibold">Absent <span id="absent-count">{{ absent_count }}</span></span>
+      &middot; <span class="text-amber-600 font-semibold">Late <span id="late-count">{{ late_count }}</span></span>
+    </p>
+  {% else %}
+    <p class="text-xs text-slate-500">Choose a class to begin attendance marking.</p>
+  {% endif %}
+</div>
+
+<!-- Student List -->
+<div id="attendance-student-list">
+  {% include "attendance/partials/take_attendance_student_list.html" %}
+</div>

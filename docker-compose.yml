@@ -1,0 +1,108 @@
+# =============================================================================
+# KSMS Docker Compose — Local Development
+# Usage: docker compose up -d
+# =============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ksms
+      POSTGRES_USER: ksms
+      POSTGRES_PASSWORD: ksms_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ksms"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      target: production
+    env_file:
+      - .env.docker
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=ksms
+      - DB_USER=ksms
+      - DB_PASSWORD=ksms_dev_password
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DEBUG=True
+      - USE_SQLITE=False
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - media_data:/app/media
+    command: >
+      sh -c "
+        python manage.py migrate --noinput &&
+        python manage.py tailwind install 2>/dev/null || true &&
+        python manage.py tailwind build 2>/dev/null || true &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+
+  celery-worker:
+    build:
+      context: .
+      target: production
+    env_file:
+      - .env.docker
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=ksms
+      - DB_USER=ksms
+      - DB_PASSWORD=ksms_dev_password
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app
+    command: celery -A ksms worker --loglevel=info --concurrency=2
+
+  celery-beat:
+    build:
+      context: .
+      target: production
+    env_file:
+      - .env.docker
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    volumes:
+      - .:/app
+    command: celery -A ksms beat --loglevel=info
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:

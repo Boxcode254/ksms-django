@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Dashboard{% endblock %}
+
+{% block content %}
+<section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+  <div class="space-y-6">
+    <div class="ksms-card p-6 border-l-4 border-l-blue-600">
+      <p class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1">Secure Workspace</p>
+      <h1 class="ksms-display text-2xl font-bold text-slate-900">Welcome back, {{ user.get_full_name|default:user.username }}.</h1>
+      <p class="mt-2 max-w-2xl text-sm text-slate-600">
+        Your current role is <span class="font-semibold text-slate-900">{{ user.get_role_display }}</span>. KSMS enforces least-privilege access and logs sensitive activity for review.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-3">
+        {% if user.is_superuser or user.is_superuser_role %}
+          <a href="{% url 'core:audit-log-list' %}" class="ksms-btn ksms-btn-primary">Review audit logs</a>
+          <a href="{% url 'admin:index' %}" class="ksms-btn ksms-btn-secondary">Open admin</a>
+        {% else %}
+          <a href="{% url 'account_change_password' %}" class="ksms-btn ksms-btn-primary">Update password</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <article class="ksms-card p-5">
+        <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-3 border-b border-slate-100 pb-2">Identity Details</h2>
+        <dl class="space-y-3 text-sm text-slate-600">
+          <div class="flex justify-between items-center">
+            <dt class="font-medium text-slate-500">Username</dt>
+            <dd class="font-medium text-slate-900">{{ user.username }}</dd>
+          </div>
+          <div class="flex justify-between items-center">
+            <dt class="font-medium text-slate-500">Email</dt>
+            <dd class="font-medium text-slate-900">{{ user.email|default:"Not set" }}</dd>
+          </div>
+          <div class="flex justify-between items-center">
+            <dt class="font-medium text-slate-500">Phone</dt>
+            <dd class="font-medium text-slate-900">{{ user.phone|default:"Not set" }}</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="ksms-card p-5">
+        <h2 class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-3 border-b border-slate-100 pb-2">Security Posture</h2>
+        <ul class="space-y-2 text-sm text-slate-600">
+          <li class="flex items-start gap-2">
+            <svg class="h-4 w-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Role-bound navigation & guards</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="h-4 w-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Audit logging enabled</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="h-4 w-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>No-store headers</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="h-4 w-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>CSRF & secure cookies</span>
+          </li>
+        </ul>
+      </article>
+    </div>
+  </div>
+
+  <aside class="space-y-4">
+    <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+      <div class="flex items-center gap-2 mb-3">
+        <svg class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <p class="text-xs font-bold uppercase tracking-widest text-blue-800">Role Guide</p>
+      </div>
+      <div class="text-sm text-blue-900 leading-relaxed">
+        {% if user.is_admin_role %}
+          <p>Administrators can manage security-sensitive operations, including the audit trail and Django admin.</p>
+        {% elif user.is_teacher_role %}
+          <p>Teachers have the foundation role only for now. Domain-specific permissions will be added in the academics phase.</p>
+        {% elif user.is_student_role %}
+          <p>Students have the minimum authenticated footprint and cannot access administrative surfaces.</p>
+        {% else %}
+          <p>Parents can securely access their account while broader communication and finance permissions are introduced later.</p>
+        {% endif %}
+      </div>
+    </div>
+  </aside>
+</section>
+{% endblock %}

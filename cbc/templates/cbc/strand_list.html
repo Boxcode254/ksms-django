@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}KSMS | CBC Strand Catalog{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">CBC · Strand catalog</p>
+      <h1 class="mt-2 text-3xl font-black text-slate-950">Strands & sub-strands</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+        The KNEC strands available to teachers when entering CBC assessments. Edit or extend per your school's curriculum.
+      </p>
+    </div>
+    {% if user.is_admin_role %}
+      <a href="{% url 'cbc:strand-create' %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">+ New strand</a>
+    {% endif %}
+  </div>
+
+  <div class="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full text-sm">
+      <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold">Subject</th>
+          <th class="px-4 py-3 text-left font-semibold">Grade level</th>
+          <th class="px-4 py-3 text-left font-semibold">Strand</th>
+          <th class="px-4 py-3 text-left font-semibold">Sub-strands</th>
+          <th class="px-4 py-3 text-right font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for s in strands %}
+          <tr>
+            <td class="px-4 py-3 text-slate-700">{{ s.subject.name }}</td>
+            <td class="px-4 py-3 text-slate-700">{{ s.grade_level }}</td>
+            <td class="px-4 py-3 font-semibold text-slate-900">{{ s.name }}</td>
+            <td class="px-4 py-3 text-xs text-slate-600">
+              {% for sub in s.sub_strands.all %}
+                <span class="inline-block rounded-full bg-slate-100 px-2 py-0.5 mr-1 mb-1">{{ sub.name }}</span>
+              {% empty %}—{% endfor %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              {% if user.is_admin_role %}
+                <a href="{% url 'cbc:sub-strand-create' s.pk %}" class="text-sm font-semibold text-sky-700 hover:underline">+ Sub</a>
+                <span class="text-slate-300">·</span>
+                <a href="{% url 'cbc:strand-edit' s.pk %}" class="text-sm font-semibold text-slate-700 hover:underline">Edit</a>
+                <span class="text-slate-300">·</span>
+                <a href="{% url 'cbc:strand-delete' s.pk %}" class="text-sm font-semibold text-red-700 hover:underline">Delete</a>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No strands recorded.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

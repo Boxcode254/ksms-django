@@ -8,6 +8,18 @@ import sys
 from decouple import config
 
 
+# ─── Sentry (optional) ────────────────────────────────────────────────────────
+SENTRY_DSN = config('SENTRY_DSN', default='')
+if SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=config('SENTRY_ENVIRONMENT', default='production'),
+        traces_sample_rate=config('SENTRY_TRACES_SAMPLE_RATE', default=0.1, cast=float),
+        profiles_sample_rate=config('SENTRY_PROFILES_SAMPLE_RATE', default=0.1, cast=float),
+    )
+
+
 def csv_list(name, default=''):
     return [item.strip() for item in config(name, default=default).split(',') if item.strip()]
 
@@ -68,6 +80,8 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'core.middleware.RequestContextMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
+    'core.middleware.RateLimitHeadersMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -123,6 +137,8 @@ else:
             'PASSWORD': config('DB_PASSWORD'),
             'HOST': config('DB_HOST'),
             'PORT': config('DB_PORT', default='5432'),
+            'CONN_MAX_AGE': config('CONN_MAX_AGE', default=60, cast=int),
+            'CONN_HEALTH_CHECKS': config('CONN_HEALTH_CHECKS', default=True, cast=bool),
             'OPTIONS': {
                 'sslmode': 'require',
             },
@@ -165,6 +181,7 @@ ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = True
 ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 2
 ACCOUNT_EMAIL_SUBJECT_PREFIX = '[KSMS] '
+ACCOUNT_ADAPTER = 'core.adapters.RateLimitedAccountAdapter'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
@@ -183,11 +200,20 @@ USE_TZ = True
 
 
 # ─── Static & Media ───────────────────────────────────────────────────────────
-STATIC_URL = '/static/'
+STATIC_URL = config('STATIC_URL', default='/static/')
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+# WhiteNoise compression and manifest
+WHITENOISE_COMPRESSION_ENABLED = config('WHITENOISE_COMPRESSION_ENABLED', default=not DEBUG, cast=bool)
+WHITENOISE_MANIFEST_STRICT = config('WHITENOISE_MANIFEST_STRICT', default=False, cast=bool)
+
+# CDN overrides (set CDN_STATIC_URL to a full CDN URL to serve statics from CDN)
+CDN_STATIC_URL = config('CDN_STATIC_URL', default='')
+CDN_MEDIA_URL = config('CDN_MEDIA_URL', default='')
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -201,7 +227,7 @@ STORAGES = {
     },
 }
 
-MEDIA_URL = '/media/'
+MEDIA_URL = config('MEDIA_URL', default='/media/')
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -215,6 +241,7 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=not DEBUG, cast=bool)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = config('SESSION_COOKIE_AGE', default=86400, cast=int)
 
 SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=not DEBUG, cast=bool)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -238,6 +265,113 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 X_FRAME_OPTIONS = 'DENY'
+
+CSP_SCRIPT_SRC = config(
+    'CSP_SCRIPT_SRC',
+    default="'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+)
+CSP_STYLE_SRC = config(
+    'CSP_STYLE_SRC',
+    default="'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+)
+CSP_IMG_SRC = config(
+    'CSP_IMG_SRC',
+    default="'self' data: https:",
+)
+CSP_CONNECT_SRC = config(
+    'CSP_CONNECT_SRC',
+    default="'self'",
+)
+CSP_FONT_SRC = config(
+    'CSP_FONT_SRC',
+    default="'self' https://cdnjs.cloudflare.com",
+)
+CSP_FRAME_ANCESTORS = config('CSP_FRAME_ANCESTORS', default="'none'")
+CSP_DEFAULT_SRC = config('CSP_DEFAULT_SRC', default="'self'")
+
+
+# ─── Caching ───────────────────────────────────────────────────────────────────
+# Local-memory cache is sufficient for dev/staging.
+# In production, switch to Redis-backed cache for cross-process sharing.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'ksms-default',
+    }
+}
+CACHE_DASHBOARD_SECONDS = config('CACHE_DASHBOARD_SECONDS', default=300, cast=int)
+
+
+# ─── Logging ───────────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'simple': {
+            'format': '{levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'ksms.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'] if DEBUG else ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'] if DEBUG else ['file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'core.security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console'] if DEBUG else ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'ksms': {
+            'handlers': ['console'] if DEBUG else ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'] if DEBUG else ['console', 'file'],
+        'level': 'INFO',
+    },
+}
 
 
 # ─── Tailwind ──────────────────────────────────────────────────────────────────
@@ -293,17 +427,79 @@ CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=CELERY_BROKER_UR
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = config('CELERY_TASK_ALWAYS_EAGER', default=RUNNING_TESTS, cast=bool)
 CELERY_TASK_EAGER_PROPAGATES = config('CELERY_TASK_EAGER_PROPAGATES', default=True, cast=bool)
+
+# Task result expiry to prevent Redis memory growth
+CELERY_RESULT_EXPIRES = 3600  # 1 hour
+
+# Task serialization and acks
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+
+# Task rejection on worker loss (prevents lost tasks)
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+# Priority queues: high > normal > default > low
+CELERY_TASK_QUEUE_MAX_PRIORITY = 10
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_QUEUES = {
+    'high': {
+        'exchange': 'high',
+        'exchange_type': 'direct',
+        'routing_key': 'high',
+        'x-max-priority': 10,
+    },
+    'normal': {
+        'exchange': 'normal',
+        'exchange_type': 'direct',
+        'routing_key': 'normal',
+        'x-max-priority': 10,
+    },
+    'default': {
+        'exchange': 'default',
+        'exchange_type': 'direct',
+        'routing_key': 'default',
+    },
+    'low': {
+        'exchange': 'low',
+        'exchange_type': 'direct',
+        'routing_key': 'low',
+    },
+}
+CELERY_TASK_ROUTES = {
+    'finance.tasks.send_payment_receipt_task': {'queue': 'high', 'priority': 9},
+    'finance.tasks.send_daily_fee_reminders_task': {'queue': 'normal', 'priority': 5},
+    'finance.tasks.send_weekly_fee_reminders_task': {'queue': 'normal', 'priority': 5},
+    'finance.tasks.sync_fee_arrears_task': {'queue': 'default'},
+}
+
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
     'finance-sync-fee-arrears-daily': {
         'task': 'finance.tasks.sync_fee_arrears_task',
-        'schedule': config('CELERY_SYNC_ARREARS_CRON_MINUTE', default=10, cast=int) * 60,
+        'schedule': crontab(
+            minute=config('CELERY_SYNC_ARREARS_CRON_MINUTE', default=0, cast=int),
+            hour=config('CELERY_SYNC_ARREARS_CRON_HOUR', default=2, cast=int),
+        ),
     },
     'finance-send-daily-reminders': {
         'task': 'finance.tasks.send_daily_fee_reminders_task',
-        'schedule': config('CELERY_DAILY_REMINDER_CRON_MINUTE', default=20, cast=int) * 60,
+        'schedule': crontab(
+            minute=config('CELERY_DAILY_REMINDER_CRON_MINUTE', default=30, cast=int),
+            hour=config('CELERY_DAILY_REMINDER_CRON_HOUR', default=8, cast=int),
+        ),
     },
     'finance-send-weekly-reminders': {
         'task': 'finance.tasks.send_weekly_fee_reminders_task',
-        'schedule': config('CELERY_WEEKLY_REMINDER_SECONDS', default=604800, cast=int),
+        'schedule': crontab(
+            minute=config('CELERY_WEEKLY_REMINDER_CRON_MINUTE', default=0, cast=int),
+            hour=config('CELERY_WEEKLY_REMINDER_CRON_HOUR', default=9, cast=int),
+            day_of_week=config('CELERY_WEEKLY_REMINDER_DAY', default=1, cast=int),
+        ),
     },
 }
+
+
+# ─── Export Limits ───────────────────────────────────────────────────────────
+EXPORT_ROW_LIMIT = config('EXPORT_ROW_LIMIT', default=5000, cast=int)

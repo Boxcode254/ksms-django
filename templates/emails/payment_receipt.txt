@@ -1,0 +1,12 @@
+Dear Parent/Guardian,
+
+Payment received for {{ student_name }}.
+
+Amount Paid: KES {{ amount }}
+Receipt Reference: {{ receipt_ref }}
+Date: {{ paid_at }}
+Remaining Balance: KES {{ balance }}
+
+Please keep this reference for your records.
+
+-- {{ school_name }} via KSMS

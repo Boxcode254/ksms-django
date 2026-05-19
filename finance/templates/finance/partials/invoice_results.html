@@ -1,0 +1,160 @@
+{% load finance_tags %}
+<div>
+  {% if user.is_parent_role %}
+  {# ── Parent view: card grid (unchanged) ─────────────────────────────────── #}
+  <div class="ksms-list-grid">
+    {% for invoice in invoices %}
+    <article class="ksms-item-card flex flex-col gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="truncate font-semibold text-slate-900">{{ invoice.enrollment.student.user.get_full_name|default:invoice.enrollment.student.user.username }}</p>
+          <p class="mt-0.5 text-xs text-slate-500">{{ invoice.fee_structure.name }}{% if invoice.due_date %} · Due {{ invoice.due_date }}{% endif %}</p>
+        </div>
+        <a href="{% url 'finance:invoice-detail' invoice.pk %}" class="ksms-btn ksms-btn-soft">View</a>
+      </div>
+      <div class="rounded-xl bg-slate-50 p-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Fee balance</p>
+        <p class="mt-2 font-mono text-2xl font-black {% if invoice.balance > 0 %}text-red-700{% else %}text-emerald-700{% endif %}">KES {{ invoice.balance }}</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 p-4 text-sm text-slate-600">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Last transaction</p>
+        {% with payment=invoice.successful_payments|first %}
+          {% if payment %}
+            <p class="mt-2 font-semibold text-slate-900">KES {{ payment.amount }} · {{ payment.get_payment_method_display }}</p>
+            <p class="mt-1 text-xs text-slate-500">{{ payment.paid_at|date:"d M Y, H:i" }}</p>
+            <a href="{% url 'finance:payment-receipt' payment.pk %}" class="mt-3 inline-flex ksms-btn ksms-btn-soft">Download receipt</a>
+          {% else %}
+            <p class="mt-2 text-xs text-slate-500">No successful transaction recorded yet.</p>
+          {% endif %}
+        {% endwith %}
+      </div>
+    </article>
+    {% empty %}
+    <div class="col-span-full">
+      <div class="flex flex-col items-center gap-4 rounded-xl border border-dashed border-slate-200 px-6 py-14 text-center">
+        <svg class="h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6a2 2 0 012 2v14l-5-3-5 3V7a2 2 0 012-2z"/><path stroke-linecap="round" d="M9 12h6M9 9h3"/></svg>
+        <p class="text-sm font-semibold text-slate-500">No invoices found</p>
+        <p class="text-xs text-slate-400">You have no invoices matching the current filters.</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  {# ── Admin / Teacher view: dense table ───────────────────────────────────── #}
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div class="overflow-x-auto">
+      <table class="ksms-data-table">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Student</th>
+            <th>Class · Term</th>
+            <th>Due date</th>
+            <th class="text-right">Amount due</th>
+            <th class="text-right">Paid</th>
+            <th class="text-right">Balance</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for invoice in invoices %}
+          <tr>
+            <td>
+              <a href="{% url 'finance:invoice-detail' invoice.pk %}" class="font-mono text-xs font-bold text-sky-700 hover:underline">{{ invoice.invoice_number }}</a>
+            </td>
+            <td>
+              <span class="font-medium text-slate-900">{{ invoice.enrollment.student.user.get_full_name|default:invoice.enrollment.student.user.username }}</span>
+              <span class="block text-xs text-slate-400">{{ invoice.enrollment.student.admission_number }}</span>
+            </td>
+            <td class="whitespace-nowrap">
+              {{ invoice.enrollment.class_section.display_name }}<br>
+              <span class="text-xs text-slate-400">{{ invoice.enrollment.term }}</span>
+            </td>
+            <td class="whitespace-nowrap">
+              {% if invoice.due_date %}
+                <span class="{% if invoice.status == 'overdue' %}text-red-600 font-medium{% else %}text-slate-600{% endif %}">{{ invoice.due_date }}</span>
+              {% else %}
+                <span class="text-slate-400">—</span>
+              {% endif %}
+            </td>
+            <td class="text-right whitespace-nowrap font-mono text-slate-900">{{ invoice.amount_due }}</td>
+            <td class="text-right whitespace-nowrap font-mono text-emerald-700">{{ invoice.amount_paid }}</td>
+            <td class="text-right whitespace-nowrap font-mono {% if invoice.balance > 0 %}text-red-600 font-semibold{% else %}text-emerald-700{% endif %}">{{ invoice.balance }}</td>
+            <td class="whitespace-nowrap">
+              {% if invoice.status == "paid" %}
+                <span class="ksms-badge ksms-badge-success">Paid</span>
+              {% elif invoice.status == "partial" %}
+                <span class="ksms-badge ksms-badge-info">Partial</span>
+              {% elif invoice.status == "overdue" %}
+                <span class="ksms-badge ksms-badge-danger">Overdue</span>
+              {% elif invoice.status == "pending" %}
+                <span class="ksms-badge ksms-badge-warning">Pending</span>
+              {% elif invoice.status == "cancelled" %}
+                <span class="ksms-badge ksms-badge-neutral">Cancelled</span>
+              {% else %}
+                <span class="ksms-badge ksms-badge-neutral">{{ invoice.get_status_display }}</span>
+              {% endif %}
+            </td>
+            <td class="text-right whitespace-nowrap">
+              <div class="inline-flex gap-1.5">
+                <a href="{% url 'finance:invoice-detail' invoice.pk %}" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.625rem; font-size: 0.75rem;">View</a>
+                {% if perms.finance.change_invoice %}
+                  <a href="{% url 'finance:invoice-update' invoice.pk %}" hx-boost="false" hx-get="{% url 'finance:invoice-update' invoice.pk %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="ksms-btn ksms-btn-secondary" style="padding: 0.25rem 0.625rem; font-size: 0.75rem;">Edit</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9">
+              <div class="flex flex-col items-center gap-4 px-6 py-14 text-center">
+                <svg class="h-10 w-10 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5h6a2 2 0 012 2v14l-5-3-5 3V7a2 2 0 012-2z"/><path stroke-linecap="round" d="M9 12h6M9 9h3"/></svg>
+                <div>
+                  <p class="text-sm font-semibold text-slate-600">No invoices match your filters</p>
+                  <p class="mt-1 text-xs text-slate-400">Try adjusting the filters above, or <a href="{% url 'finance:invoice-list' %}" class="text-sky-600 underline">clear all filters</a>.</p>
+                </div>
+                {% if perms.finance.add_invoice %}
+                  <a href="{% url 'finance:invoice-create' %}" hx-boost="false" hx-get="{% url 'finance:invoice-create' %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="ksms-btn ksms-btn-primary">+ Create invoice</a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if is_paginated %}
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-500">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.paginator.num_pages > 10 %}
+        <form method="get" class="flex items-center gap-1" hx-boost="false">
+          {% for key, value in request.GET.items %}
+            {% if key != 'page' %}
+              <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endif %}
+          {% endfor %}
+          <label for="jump-page-inv" class="text-xs text-slate-500">Go:</label>
+          <input type="number" id="jump-page-inv" name="page" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}"
+                 class="w-14 rounded border border-slate-300 px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
+                 hx-on::keydown="if(event.key==='Enter'){this.form.submit();}">
+          <button type="submit" class="ksms-btn ksms-btn-soft text-xs" style="padding: 0.2rem 0.5rem;">Go</button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?{% query_update request.GET page=page_obj.previous_page_number %}" hx-get="?{% query_update request.GET page=page_obj.previous_page_number %}" hx-target="#invoice-results" hx-push-url="true" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">← Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?{% query_update request.GET page=page_obj.next_page_number %}" hx-get="?{% query_update request.GET page=page_obj.next_page_number %}" hx-target="#invoice-results" hx-push-url="true" class="ksms-btn ksms-btn-soft" style="padding: 0.25rem 0.75rem; font-size: 0.75rem;">Next →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,45 @@
+{% comment %}
+Global command palette (⌘K / Ctrl+K).
+Pure client-side navigation jump list. No backend search needed.
+Items are visibility-filtered by role on the server before render.
+{% endcomment %}
+<div id="ksms-palette" class="ksms-palette" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="ksms-palette-label">
+  <div class="ksms-palette-backdrop" data-palette-close></div>
+  <div class="ksms-palette-panel">
+    <label id="ksms-palette-label" class="sr-only">Search and navigate</label>
+    <div class="ksms-palette-search">
+      <svg class="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3"/></svg>
+      <input id="ksms-palette-input" type="text" placeholder="Search pages, jump to anything…" autocomplete="off" spellcheck="false">
+      <kbd class="ksms-kbd">ESC</kbd>
+    </div>
+    <div id="ksms-palette-list" class="ksms-palette-list" role="listbox"></div>
+    <div class="ksms-palette-footer">
+      <span><kbd class="ksms-kbd">↑</kbd> <kbd class="ksms-kbd">↓</kbd> to navigate · <kbd class="ksms-kbd">↵</kbd> to open</span>
+      <span>KSMS Quick Jump</span>
+    </div>
+  </div>
+</div>
+
+<script id="ksms-palette-items" type="application/json">
+[
+  {"group": "Core", "label": "Dashboard", "url": "{% url 'core:dashboard' %}", "keywords": "home overview", "icon": "M3 12l9-9 9 9M5 10v10h14V10"},
+  {"group": "Core", "label": "Announcements", "url": "{% url 'communication:announcement-list' %}", "keywords": "messages notify", "icon": "M11 5l-5 5H4v4h2l5 5V5zM15 9a3 3 0 010 6"}
+  {% if user.is_admin_role or user.is_teacher_role %}
+  ,{"group": "Operations", "label": "Students", "url": "{% url 'students:student-list' %}", "keywords": "learners pupils", "icon": "M16 14a4 4 0 10-8 0M12 11a3 3 0 110-6 3 3 0 010 6zM2 22a6 6 0 0112 0M14 16a6 6 0 016 6"}
+  ,{"group": "Operations", "label": "Guardians", "url": "{% url 'students:guardian-list' %}", "keywords": "parents", "icon": "M12 12a4 4 0 100-8 4 4 0 000 8zM4 20a8 8 0 1116 0"}
+  ,{"group": "Operations", "label": "Class Sections", "url": "{% url 'academics:classsection-list' %}", "keywords": "classes groups", "icon": "M3 7h18M5 7v12h14V7M9 11h6"}
+  ,{"group": "Operations", "label": "Subjects", "url": "{% url 'academics:subject-list' %}", "keywords": "courses", "icon": "M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4V4z"}
+  ,{"group": "Operations", "label": "Timetable", "url": "{% url 'academics:timetable-list' %}", "keywords": "schedule lessons", "icon": "M7 3v3M17 3v3M4 9h16M5 6h14a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z"}
+  ,{"group": "Operations", "label": "Grades", "url": "{% url 'academics:grade-list' %}", "keywords": "results marks scores", "icon": "M4 6h16M4 12h16M4 18h10"}
+  ,{"group": "Operations", "label": "Teachers", "url": "{% url 'academics:teacher-list' %}", "keywords": "staff faculty", "icon": "M16 14a4 4 0 10-8 0M12 11a3 3 0 110-6 3 3 0 010 6z"}
+  ,{"group": "Operations", "label": "Take Attendance", "url": "{% url 'attendance:daily-list' %}", "keywords": "daily roll-call", "icon": "M5 13l4 4L19 7"}
+  ,{"group": "Operations", "label": "Period Attendance", "url": "{% url 'attendance:period-list' %}", "keywords": "lesson attendance", "icon": "M12 8v4l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z"}
+  {% endif %}
+  {% if user.is_admin_role %}
+  ,{"group": "Finance", "label": "Fee Structures", "url": "{% url 'finance:feestructure-list' %}", "keywords": "fees pricing", "icon": "M3 7h18M3 12h18M3 17h12"}
+  ,{"group": "Finance", "label": "Invoices", "url": "{% url 'finance:invoice-list' %}", "keywords": "bills charges", "icon": "M9 5h6a2 2 0 012 2v14l-5-3-5 3V7a2 2 0 012-2z"}
+  ,{"group": "Finance", "label": "Fee Arrears", "url": "{% url 'finance:fee-arrear-list' %}", "keywords": "overdue debts reminders", "icon": "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"}
+  {% endif %}
+  ,{"group": "Account", "label": "Change Password", "url": "{% url 'account_change_password' %}", "keywords": "security login", "icon": "M16 10V7a4 4 0 00-8 0v3M6 10h12v10H6z"}
+]
+</script>

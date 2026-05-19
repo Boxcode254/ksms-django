@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}KSMS | Invoice {{ invoice.invoice_number }}{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <nav class="ksms-breadcrumbs mb-2" aria-label="Breadcrumb">
+        <a href="{% url 'finance:invoice-list' %}">Invoices</a>
+        <span class="sep" aria-hidden="true">/</span>
+        <span class="current" aria-current="page">{{ invoice.invoice_number }}</span>
+      </nav>
+      <h1 class="text-2xl font-bold tracking-tight text-slate-900 font-mono">{{ invoice.invoice_number }}</h1>
+      <p class="mt-1.5 text-sm text-slate-600">Issued {{ invoice.issued_date }}{% if invoice.due_date %} · Due {{ invoice.due_date }}{% endif %}</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <a href="{% url 'finance:invoice-list' %}" class="ksms-btn ksms-btn-soft">Back to invoices</a>
+      {% if user.is_admin_role or user.is_superuser %}
+        <a href="{% url 'finance:fee-arrear-list' %}" class="ksms-btn ksms-btn-secondary">Arrears queue</a>
+      {% endif %}
+      {% if not is_parent_finance_view and perms.finance.change_invoice %}
+        <a href="{% url 'finance:invoice-update' invoice.pk %}" hx-boost="false" hx-get="{% url 'finance:invoice-update' invoice.pk %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="ksms-btn ksms-btn-secondary">Edit invoice</a>
+      {% endif %}
+      {% if can_record_payment %}
+        <a href="{% url 'finance:payment-create' invoice.pk %}" hx-boost="false" hx-get="{% url 'finance:payment-create' invoice.pk %}" hx-target="#ksms-modal-body" hx-swap="innerHTML" class="ksms-btn ksms-btn-primary">Record payment</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if is_parent_finance_view %}
+  <div class="grid gap-6 md:grid-cols-2">
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Student</h2>
+      <p class="mt-3 text-lg font-semibold text-slate-900">{{ invoice.enrollment.student.user.get_full_name|default:invoice.enrollment.student.user.username }}</p>
+      <p class="text-sm text-slate-600">Adm. No: {{ invoice.enrollment.student.admission_number }}</p>
+      <p class="text-sm text-slate-600">Class: {{ invoice.enrollment.class_section.display_name }}</p>
+      <p class="text-sm text-slate-600">Term: {{ invoice.enrollment.term }}</p>
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Fee balance</h2>
+      <p class="mt-3 text-sm text-slate-600">{{ invoice.fee_structure.name }}</p>
+      <div class="mt-4 space-y-2">
+        <div class="flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold">
+          <span class="text-slate-700">Balance</span>
+          <span class="font-mono {% if invoice.balance > 0 %}text-red-700{% else %}text-emerald-700{% endif %}">KES {{ invoice.balance }}</span>
+        </div>
+      </div>
+      <div class="mt-4">
+        {% if invoice.status == "paid" %}
+          <span class="ksms-badge ksms-badge-success">Paid</span>
+        {% elif invoice.status == "partial" %}
+          <span class="ksms-badge ksms-badge-info">Partial</span>
+        {% elif invoice.status == "overdue" %}
+          <span class="ksms-badge ksms-badge-danger">Overdue</span>
+        {% elif invoice.status == "pending" %}
+          <span class="ksms-badge ksms-badge-warning">Pending</span>
+        {% elif invoice.status == "cancelled" %}
+          <span class="ksms-badge ksms-badge-neutral">Cancelled</span>
+        {% else %}
+          <span class="ksms-badge ksms-badge-neutral">{{ invoice.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Last transaction</h2>
+      {% if last_successful_payment %}
+        <p class="mt-3 text-lg font-semibold text-slate-900">KES {{ last_successful_payment.amount }} · {{ last_successful_payment.get_payment_method_display }}</p>
+        <p class="mt-1 text-sm text-slate-600">{{ last_successful_payment.paid_at|date:"d M Y, H:i" }}</p>
+        <p class="mt-1 text-xs text-slate-500">Reference {{ last_successful_payment.reference_number }}</p>
+        {% if last_successful_payment.mpesa_receipt_number %}<p class="mt-1 text-xs text-slate-500">M-Pesa receipt {{ last_successful_payment.mpesa_receipt_number }}</p>{% endif %}
+      {% else %}
+        <p class="mt-3 text-sm text-slate-500">No successful transaction recorded yet.</p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Receipts</h2>
+      <div class="mt-4 space-y-3">
+        {% for payment in receipt_payments %}
+          <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+            <div>
+              <p class="text-sm font-semibold text-slate-900">KES {{ payment.amount }}</p>
+              <p class="text-xs text-slate-500">{{ payment.paid_at|date:"d M Y, H:i" }} · {{ payment.reference_number }}</p>
+            </div>
+            <a href="{% url 'finance:payment-receipt' payment.pk %}" class="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Download receipt</a>
+          </div>
+        {% empty %}
+          <p class="text-sm text-slate-500">Receipts will appear here after successful payments are recorded.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Pay with M-Pesa</h2>
+      {% if can_initiate_stk %}
+        <p class="mt-3 text-sm text-slate-600">Submit an STK push and approve from your phone to settle this invoice.</p>
+        <form id="stk-form" class="mt-4 space-y-3" action="{% url 'finance:mpesa-stk-init' invoice.pk %}" method="post">
+          {% csrf_token %}
+          <div>
+            <label for="stk-amount" class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Amount (KES)</label>
+            <input id="stk-amount" name="amount" type="number" min="1" step="1" max="{{ invoice.balance }}" value="{{ invoice.balance }}" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800" required>
+          </div>
+          <div>
+            <label for="stk-phone" class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">M-Pesa Phone Number</label>
+            <input id="stk-phone" name="phone_number" type="text" value="{{ default_phone }}" placeholder="+2547XXXXXXXX" class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800" required>
+          </div>
+          <button id="stk-submit" type="submit" class="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            <span class="stk-btn-text">Send STK Prompt</span>
+            <svg class="stk-spinner hidden h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </form>
+        <p id="stk-status" class="mt-3 text-sm text-slate-600" aria-live="polite"></p>
+      {% elif not stk_enabled %}
+        <p class="mt-3 text-sm text-slate-500">M-Pesa STK payments are currently disabled.</p>
+      {% else %}
+        <p class="mt-3 text-sm text-slate-500">This invoice has no outstanding balance for STK payment.</p>
+      {% endif %}
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Pending transactions</h2>
+      <div class="mt-4 space-y-3">
+        {% for payment in pending_payments %}
+          <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p class="text-sm font-semibold text-amber-900">KES {{ payment.amount }}</p>
+            <p class="text-xs text-amber-800">Requested {{ payment.created_at|date:"d M Y, H:i" }}</p>
+            {% if payment.mpesa_phone_number %}<p class="text-xs text-amber-700">Phone {{ payment.mpesa_phone_number }}</p>{% endif %}
+            {% if payment.mpesa_checkout_request_id %}<p class="text-xs text-amber-700">Checkout {{ payment.mpesa_checkout_request_id }}</p>{% endif %}
+          </div>
+        {% empty %}
+          <p class="text-sm text-slate-500">No pending M-Pesa transaction right now.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if can_initiate_stk %}
+  <script>
+    (function () {
+      var form = document.getElementById("stk-form");
+      if (!form) { return; }
+
+      var statusNode = document.getElementById("stk-status");
+      var submitBtn = document.getElementById("stk-submit");
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        submitBtn.disabled = true;
+        var spinner = submitBtn.querySelector(".stk-spinner");
+        var btnText = submitBtn.querySelector(".stk-btn-text");
+        if (spinner) spinner.classList.remove("hidden");
+        if (btnText) btnText.classList.add("hidden");
+        if (statusNode) {
+          statusNode.textContent = "Submitting STK request...";
+          statusNode.className = "mt-3 text-sm text-slate-600";
+        }
+
+        try {
+          var response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: {"X-Requested-With": "XMLHttpRequest"}
+          });
+          var payload = await response.json();
+
+          if (payload.ok) {
+            if (statusNode) {
+              statusNode.textContent = payload.message || "STK prompt sent. Approve it on your phone.";
+              statusNode.className = "mt-3 text-sm text-emerald-700";
+            }
+          } else {
+            if (statusNode) {
+              statusNode.textContent = payload.error || "Could not start STK request.";
+              statusNode.className = "mt-3 text-sm text-red-700";
+            }
+          }
+        } catch (error) {
+          if (statusNode) {
+            statusNode.textContent = "Network error while sending STK request.";
+            statusNode.className = "mt-3 text-sm text-red-700";
+          }
+        } finally {
+          submitBtn.disabled = false;
+          if (spinner) spinner.classList.add("hidden");
+          if (btnText) btnText.classList.remove("hidden");
+        }
+      });
+    })();
+  </script>
+  {% endif %}
+  {% else %}
+  <!-- Invoice summary -->
+  <div class="grid gap-6 md:grid-cols-2">
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Student</h2>
+      <p class="mt-3 text-lg font-semibold text-slate-900">{{ invoice.enrollment.student.user.get_full_name|default:invoice.enrollment.student.user.username }}</p>
+      <p class="text-sm text-slate-600">Adm. No: {{ invoice.enrollment.student.admission_number }}</p>
+      <p class="text-sm text-slate-600">Class: {{ invoice.enrollment.class_section.display_name }}</p>
+      <p class="text-sm text-slate-600">Term: {{ invoice.enrollment.term }}</p>
+    </div>
+
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Fee summary</h2>
+      <p class="mt-3 text-sm text-slate-600">{{ invoice.fee_structure.name }}</p>
+      <div class="mt-4 space-y-2">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Amount due</span>
+          <span class="font-mono font-semibold text-slate-900">KES {{ invoice.amount_due }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Amount paid</span>
+          <span class="font-mono font-semibold text-emerald-700">KES {{ invoice.amount_paid }}</span>
+        </div>
+        <div class="flex justify-between border-t border-slate-200 pt-2 text-sm font-semibold">
+          <span class="text-slate-700">Balance</span>
+          <span class="font-mono {% if invoice.balance > 0 %}text-red-700{% else %}text-emerald-700{% endif %}">KES {{ invoice.balance }}</span>
+        </div>
+      </div>
+      <div class="mt-4">
+        {% if invoice.status == "paid" %}
+          <span class="ksms-badge ksms-badge-success">Paid</span>
+        {% elif invoice.status == "partial" %}
+          <span class="ksms-badge ksms-badge-info">Partial</span>
+        {% elif invoice.status == "overdue" %}
+          <span class="ksms-badge ksms-badge-danger">Overdue</span>
+        {% elif invoice.status == "pending" %}
+          <span class="ksms-badge ksms-badge-warning">Pending</span>
+        {% elif invoice.status == "cancelled" %}
+          <span class="ksms-badge ksms-badge-neutral">Cancelled</span>
+        {% else %}
+          <span class="ksms-badge ksms-badge-neutral">{{ invoice.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Payments table -->
+  <div class="rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Payments</h2>
+      {% if can_record_payment %}
+        <a href="{% url 'finance:payment-create' invoice.pk %}" class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">+ Record payment</a>
+      {% endif %}
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+          <tr>
+            <th class="px-4 py-4">Reference</th>
+            <th class="px-4 py-4">Date</th>
+            <th class="px-4 py-4">Amount</th>
+            <th class="px-4 py-4">Method</th>
+            <th class="px-4 py-4">Status</th>
+            <th class="px-4 py-4">M-Pesa receipt</th>
+            <th class="px-4 py-4">Received by</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white text-slate-700">
+          {% for payment in payments %}
+            <tr>
+              <td class="px-4 py-4 font-mono text-xs">{{ payment.reference_number }}</td>
+              <td class="px-4 py-4 whitespace-nowrap">{{ payment.paid_at|date:"d M Y, H:i" }}</td>
+              <td class="px-4 py-4 whitespace-nowrap font-mono">KES {{ payment.amount }}</td>
+              <td class="px-4 py-4 whitespace-nowrap">{{ payment.get_payment_method_display }}</td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                {% if payment.status == "successful" %}
+                  <span class="ksms-badge ksms-badge-success">Successful</span>
+                {% elif payment.status == "pending" %}
+                  <span class="ksms-badge ksms-badge-warning">Pending</span>
+                {% elif payment.status == "failed" %}
+                  <span class="ksms-badge ksms-badge-danger">Failed</span>
+                {% elif payment.status == "reversed" %}
+                  <span class="ksms-badge ksms-badge-neutral">Reversed</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-4 whitespace-nowrap font-mono text-xs">{{ payment.mpesa_receipt_number|default:"—" }}</td>
+              <td class="px-4 py-4 whitespace-nowrap">
+                {% if payment.received_by %}
+                  {{ payment.received_by.get_full_name|default:payment.received_by.username }}
+                {% else %}
+                  <span class="text-slate-400">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No payments recorded yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if invoice.notes %}
+    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Notes</h2>
+      <p class="mt-3 text-sm text-slate-700 whitespace-pre-line">{{ invoice.notes }}</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

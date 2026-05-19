@@ -1,0 +1,12 @@
+Dear Parent/Guardian,
+
+This is a reminder that {{ student_name }} has an outstanding fee balance.
+
+Outstanding Balance: KES {{ outstanding_amount }}
+Due Date: {{ due_date }}
+
+Please clear your balance to avoid disruption to learning.
+
+{% if is_overdue %}This account is significantly overdue and needs urgent clearance.{% endif %}
+
+-- {{ school_name }} via KSMS
