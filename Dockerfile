@@ -1,9 +1,8 @@
-# KSMS v2 - Force Rebuild $(date +%s)
+# KSMS Production Dockerfile v2
 FROM python:3.11.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    REBUILD_ID=force-rebuild-$(date +%s)
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
