@@ -6,22 +6,89 @@ Production deployment guide for Kenya School Management System targeting 100k us
 
 ```
                     ┌─────────────┐
-  Browser ────────► │  Gunicorn   │
-                    │  (WSGI)     │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │   Django    │
-                    │  + HTMX     │
-                    └──┬───┬───┬─┘
-                       │   │   │
-              ┌────────┘   │   └─────────┐
-              ▼            ▼             ▼
-        ┌──────────┐ ┌─────────┐  ┌────────────┐
-        │ Supabase │ │  Redis  │  │ WhiteNoise │
-        │ Postgres │ │ (Celery)│  │ (statics)  │
-        └──────────┘ └─────────┘  └────────────┘
+   Browser ────────► │  Gunicorn   │
+                     │  (WSGI)     │
+                     └──────┬──────┘
+                            │
+                     ┌──────▼──────┐
+                     │   Django    │
+                     │  + HTMX     │
+                     └──┬───┬───┬─┘
+                        │   │   │
+               ┌────────┘   │   └─────────┐
+               ▼            ▼             ▼
+         ┌──────────┐ ┌─────────┐  ┌────────────┐
+         │ Supabase │ │  Redis  │  │ WhiteNoise │
+         │ Postgres │ │ (Celery)│  │ (statics)  │
+         └──────────┘ └─────────┘  └────────────┘
 ```
+
+## 0. Render Deployment (Recommended)
+
+### 0.1 One-Click Deploy via Blueprint
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → **Blueprints** → **New Blueprint Instance**
+2. Connect your GitHub repo (`Boxcode254/ksms-django`)
+3. Render reads `render.yaml` and creates the web service automatically
+
+### 0.2 Manual Setup via Dashboard
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Web Service**
+2. Connect your GitHub repo
+3. Configure:
+   - **Build Command:** Leave blank (Docker auto-detected)
+   - **Start Command:** Leave blank (uses Dockerfile CMD)
+   - **Environment:** Docker
+   - **Region:** Oregon (closest to Supabase US regions)
+4. Set all environment variables (see `.env.example`)
+5. Click **Create Web Service**
+
+### 0.3 Required Environment Variables
+
+Set these in Render Dashboard → your service → **Environment**:
+
+| Variable | Value |
+|---|---|
+| `SECRET_KEY` | Generate a new random key |
+| `DEBUG` | `False` |
+| `ALLOWED_HOSTS` | `yourapp.onrender.com` |
+| `CSRF_TRUSTED_ORIGINS` | `https://yourapp.onrender.com` |
+| `USE_SQLITE` | `False` |
+| `DB_NAME` | `postgres` |
+| `DB_USER` | `postgres.<project-ref>` |
+| `DB_PASSWORD` | `<supabase-password>` |
+| `DB_HOST` | `aws-0-<region>.pooler.supabase.com` |
+| `DB_PORT` | `5432` |
+| `CONN_MAX_AGE` | `60` |
+| `CONN_HEALTH_CHECKS` | `True` |
+| `SECURE_SSL_REDIRECT` | `False` (Render handles HTTPS) |
+| `SESSION_COOKIE_SECURE` | `True` |
+| `CSRF_COOKIE_SECURE` | `True` |
+| `SECURE_HSTS_SECONDS` | `31536000` |
+| `FIELD_ENCRYPTION_KEY` | `<fernet-key>` |
+| `EMAIL_HOST_PASSWORD` | `<resend-api-key>` |
+| `DJANGO_SUPERUSER_USERNAME` | `admin.ksms` |
+| `DJANGO_SUPERUSER_EMAIL` | `admin@ksms.local` |
+| `DJANGO_SUPERUSER_PASSWORD` | `<strong-password>` |
+| `CELERY_BROKER_URL` | `<upstash-redis-url>` |
+| `CELERY_RESULT_BACKEND` | `<upstash-redis-url>` |
+
+### 0.4 Post-Deploy Verification
+
+```bash
+# Health check
+curl -s https://yourapp.onrender.com/health/
+
+# Expected: {"status": "ok", "database": "connected"}
+
+# Login at:
+# https://yourapp.onrender.com/accounts/login/
+```
+
+> [!NOTE]
+> Render free tier spins down after 15 minutes of inactivity. First request after spin-down takes ~30s. Upgrade to $7/mo for always-on.
+
+---
 
 ## 1. Supabase PostgreSQL Setup
 
@@ -209,6 +276,15 @@ python manage.py showmigrations
 
 ## 8. Deployment Checklist
 
+### Render (Docker)
+- [ ] Connect GitHub repo to Render
+- [ ] Set all environment variables in Render dashboard
+- [ ] Deploy (auto-triggers on push to main)
+- [ ] Verify health endpoint: `curl https://yourapp.onrender.com/health/`
+- [ ] Check logs in Render dashboard
+- [ ] Login with superuser credentials
+
+### Self-Hosted (VPS)
 - [ ] Pull latest code
 - [ ] Activate virtual environment
 - [ ] Install dependencies: `pip install -r requirements-prod.txt`
@@ -224,7 +300,13 @@ python manage.py showmigrations
 
 ## 9. Rollback Procedure
 
-### 9.1 Code Rollback
+### 9.1 Render Rollback
+1. Go to Render Dashboard → your service → **Events**
+2. Find the last known-good deployment
+3. Click **Rollback**
+4. Wait for the rollback to complete (~2 minutes)
+
+### 9.2 Code Rollback
 ```bash
 # Find the last good commit
 git log --oneline -10
@@ -237,7 +319,7 @@ python manage.py collectstatic --noinput
 sudo systemctl restart ksms ksms-celery-worker ksms-celery-beat
 ```
 
-### 9.2 Database Rollback
+### 9.3 Database Rollback
 ```bash
 # Check migration history
 python manage.py showmigrations
@@ -249,7 +331,7 @@ python manage.py migrate <app> <previous_migration>
 # Always backup before rolling back
 ```
 
-### 9.3 Supabase Point-in-Time Recovery
+### 9.4 Supabase Point-in-Time Recovery
 1. Go to Supabase Dashboard → Database → Backups
 2. Select the backup before the problematic migration
 3. Restore to a new branch for testing first

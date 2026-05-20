@@ -1,0 +1,96 @@
+services:
+  - type: web
+    name: ksms-django
+    env: docker
+    region: oregon
+    plan: free
+    healthCheckPath: /health/
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: USE_SQLITE
+        value: "False"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: CONN_MAX_AGE
+        value: "60"
+      - key: CONN_HEALTH_CHECKS
+        value: "True"
+      - key: SECURE_SSL_REDIRECT
+        value: "False"
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+      - key: CSRF_COOKIE_SECURE
+        value: "True"
+      - key: SECURE_HSTS_SECONDS
+        value: "31536000"
+      - key: SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "True"
+      - key: SECURE_HSTS_PRELOAD
+        value: "True"
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.smtp.EmailBackend"
+      - key: EMAIL_HOST
+        value: "smtp.resend.com"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        value: "resend"
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        value: "onboarding@resend.dev"
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+      - key: CELERY_BROKER_URL
+        sync: false
+      - key: CELERY_RESULT_BACKEND
+        sync: false
+      - key: MPESA_ENV
+        value: "sandbox"
+      - key: MPESA_STK_ENABLED
+        value: "False"
+      - key: AUTO_REMINDERS_ENABLED
+        value: "False"
+      - key: SEND_PAYMENT_NOTIFICATIONS
+        value: "False"
+      - key: REMINDER_EMAIL_ENABLED
+        value: "False"
+      - key: ARREARS_ENABLED
+        value: "True"
+      - key: WHITENOISE_COMPRESSION_ENABLED
+        value: "True"
+      - key: WHITENOISE_MANIFEST_STRICT
+        value: "False"
+      - key: CACHE_DASHBOARD_SECONDS
+        value: "300"
+      - key: EXPORT_ROW_LIMIT
+        value: "5000"
