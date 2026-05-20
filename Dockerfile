@@ -21,8 +21,8 @@ COPY . .
 
 RUN mkdir -p /app/logs /app/media /app/staticfiles
 
+RUN chmod +x /app/start.sh
+
 EXPOSE 8000
 
-# Run migrations, collect static, then start gunicorn
-# If migrations fail, try fake application
-CMD ["sh", "-c", "python manage.py migrate --noinput 2>/dev/null || python manage.py migrate --noinput --fake; python manage.py collectstatic --noinput --clear 2>/dev/null || true; gunicorn ksms.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile - --timeout 120"]
+CMD ["/app/start.sh"]
