@@ -36,11 +36,19 @@ DEMO_USERNAMES = csv_list('DEMO_USERNAMES', '')
 FINAL_SUPERUSER_USERNAME = config('FINAL_SUPERUSER_USERNAME', default='')
 FINAL_SUPERUSER_EMAIL = config('FINAL_SUPERUSER_EMAIL', default='')
 FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='')
-ALLOWED_HOSTS = csv_list('ALLOWED_HOSTS', '127.0.0.1,localhost,.vercel.app,.onrender.com')
-CSRF_TRUSTED_ORIGINS = csv_list(
-    'CSRF_TRUSTED_ORIGINS',
-    'http://127.0.0.1:8000,http://localhost:8000' if DEBUG else 'https://*.vercel.app,https://*.onrender.com',
-)
+# Always include platform hosting domains so env var overrides can't lock us out.
+_PLATFORM_HOSTS = ['.vercel.app', '.onrender.com', '.up.railway.app']
+_PLATFORM_ORIGINS = ['https://*.vercel.app', 'https://*.onrender.com', 'https://*.up.railway.app']
+
+ALLOWED_HOSTS = list(set(
+    csv_list('ALLOWED_HOSTS', '127.0.0.1,localhost') + _PLATFORM_HOSTS
+))
+CSRF_TRUSTED_ORIGINS = list(set(
+    csv_list(
+        'CSRF_TRUSTED_ORIGINS',
+        'http://127.0.0.1:8000,http://localhost:8000' if DEBUG else '',
+    ) + _PLATFORM_ORIGINS
+))
 
 
 # ─── Applications ─────────────────────────────────────────────────────────────
