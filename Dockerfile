@@ -21,8 +21,8 @@ COPY . .
 
 RUN mkdir -p /app/logs /app/media /app/staticfiles
 
-RUN chmod +x /app/start.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["/app/start.sh"]
+CMD ["/app/entrypoint.sh"]
