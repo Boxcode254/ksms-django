@@ -1,4 +1,4 @@
-# KSMS Production Dockerfile v13
+# KSMS Production Dockerfile v14 - background migrations
 FROM python:3.11.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
