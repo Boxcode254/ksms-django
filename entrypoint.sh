@@ -2,47 +2,31 @@
 set -e
 
 echo "=== KSMS Startup ==="
-echo "PORT: $PORT"
-echo "DEBUG: $DEBUG"
-echo "DB_HOST: $DB_HOST"
+echo "PORT: ${PORT:-8000}"
+echo "DEBUG: ${DEBUG:-False}"
+echo "DB_HOST: ${DB_HOST:-not set}"
 echo "===================="
 
-# Step 1: Start gunicorn immediately so healthcheck passes
-echo "Starting gunicorn on port ${PORT:-8000}..."
-gunicorn ksms.wsgi:application \
+# Step 1: Run database migrations (must complete before serving traffic)
+echo "[1/4] Running database migrations..."
+python manage.py migrate --noinput 2>&1 | tail -20
+echo "      Migrations complete."
+
+# Step 2: Collect static files (WhiteNoise needs the manifest before gunicorn)
+echo "[2/4] Collecting static files..."
+python manage.py collectstatic --noinput 2>&1 | tail -5
+echo "      Static files collected."
+
+# Step 3: Create superuser if env vars are set (idempotent)
+echo "[3/4] Ensuring superuser..."
+python manage.py ensure_superuser 2>&1
+echo "      Superuser check complete."
+
+# Step 4: Start gunicorn
+echo "[4/4] Starting gunicorn on port ${PORT:-8000}..."
+exec gunicorn ksms.wsgi:application \
     --bind "0.0.0.0:${PORT:-8000}" \
     --workers 2 \
     --access-logfile - \
     --error-logfile - \
-    --timeout 120 &
-GUNICORN_PID=$!
-
-# Step 2: Run migrations in background
-echo "Running migrations..."
-python manage.py migrate --noinput &
-MIGRATE_PID=$!
-
-# Step 3: Collect static files in background
-echo "Collecting static files..."
-python manage.py collectstatic --noinput &
-
-# Step 4: Wait for migrations, then create superuser
-wait $MIGRATE_PID
-if [ -n "$FINAL_SUPERUSER_USERNAME" ] && [ -n "$FINAL_SUPERUSER_PASSWORD" ]; then
-    echo "Setting up superuser..."
-    python manage.py launch_prep_accounts \
-        --demo-action deactivate \
-        --final-username "$FINAL_SUPERUSER_USERNAME" \
-        --final-email "${FINAL_SUPERUSER_EMAIL:-admin@ksms.local}" \
-        --final-password "$FINAL_SUPERUSER_PASSWORD" \
-        --dry-run 2>/dev/null || true
-    python manage.py launch_prep_accounts \
-        --demo-action deactivate \
-        --final-username "$FINAL_SUPERUSER_USERNAME" \
-        --final-email "${FINAL_SUPERUSER_EMAIL:-admin@ksms.local}" \
-        --final-password "$FINAL_SUPERUSER_PASSWORD" || true
-    echo "Superuser setup complete."
-fi
-
-# Wait for gunicorn to keep container alive
-wait $GUNICORN_PID
+    --timeout 120

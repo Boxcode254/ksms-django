@@ -790,11 +790,6 @@
   </script>
   {% block extra_scripts %}{% endblock %}
 
-  {% if not debug %}
-  <script>
-    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-  </script>
-  <script defer src="/_vercel/insights/script.js"></script>
-  {% endif %}
+
 </body>
 </html>
