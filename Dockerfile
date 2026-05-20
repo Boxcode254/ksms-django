@@ -1,4 +1,4 @@
-# KSMS Production Dockerfile v14 - background migrations
+# KSMS Production Dockerfile v15 - collectstatic first
 FROM python:3.11.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
