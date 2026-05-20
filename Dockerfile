@@ -1,4 +1,4 @@
-# KSMS Production Dockerfile v10 (working version)
+# KSMS Production Dockerfile v11
 FROM python:3.11.9-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -23,5 +23,8 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles
 
 EXPOSE 8000
 
-# Collect static at startup, then start gunicorn
-CMD sh -c "python manage.py collectstatic --noinput --clear 2>/dev/null || true && gunicorn ksms.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile - --timeout 120"
+# Run migrations, collect static, then start gunicorn
+# Migrations run first to ensure DB schema is up to date
+CMD python manage.py migrate --noinput && \
+    python manage.py collectstatic --noinput --clear 2>/dev/null || true && \
+    gunicorn ksms.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile - --timeout 120
