@@ -1,9 +1,9 @@
-# KSMS Railway Deployment — Progress, Problems & Solutions
+# KSMS Railway → Render Migration — Progress, Problems & Solutions
 
-**Date:** 2026-05-19  
+**Date:** 2026-05-20  
 **Project:** Kenya School Management System (KSMS)  
 **Repository:** https://github.com/Boxcode254/ksms-django  
-**Live URL:** https://ksms-django-production.up.railway.app  
+**Live URL:** https://ksms-django.onrender.com  
 
 ---
 
@@ -11,100 +11,89 @@
 
 | Service | Provider | Tier | Cost |
 |---|---|---|---|
-| Hosting | Railway | Hobby | ~$5-10/mo |
+| Hosting | Render | Free (750 hrs/mo) | $0 |
 | Database | Supabase | Free | $0 |
 | Email | Resend | Free (100/day) | $0 |
-| Redis (Celery) | Upstash | Free (10k/day) | $0 (pending) |
-| **Total** | | | **~$5-10/mo** |
+| Redis (Celery) | Render Redis | Free tier | $0 |
+| **Total** | | | **$0** |
 
 ---
 
-## 2. Deployment Progress
+## 2. Migration Progress
+
+### Railway → Render Migration ✅
+
+| Task | Status | Notes |
+|---|---|---|
+| Created render.yaml | ✅ Done | Blueprint config for web service |
+| Updated ALLOWED_HOSTS defaults | ✅ Done | `.onrender.com` with leading dot |
+| Removed railway.json | ✅ Done | No longer needed |
+| Updated DEPLOYMENT.md | ✅ Done | Render setup instructions added |
+| Deployed to Render | ✅ Done | Live at https://ksms-django.onrender.com |
+| Health check passing | ✅ Done | `{"status": "ok", "database": "connected"}` |
+| Superuser created | ✅ Done | admin.ksms promoted to superuser |
 
 ### Day 1 — Accounts & Configuration ✅
 
 | Task | Status | Notes |
 |---|---|---|
-| Railway account | ✅ Done | Connected to GitHub repo |
+| Railway account | ✅ Done | Trial expired, migrated to Render |
 | Resend email | ✅ Done | API key configured |
 | Supabase DB | ✅ Done | Already configured, connection verified |
-| Railway CLI | ✅ Done | Installed v4.59.0 |
-| Environment variables | ✅ Done | 33 vars set via CLI |
-| App deployed | ✅ Done | Live at Railway URL |
+| Render CLI | ⏳ Pending | Download timing out, using REST API instead |
+| Environment variables | ✅ Done | Set via Render dashboard |
+| App deployed | ✅ Done | Live at Render URL |
 
 ### Day 2 — Superuser & Production Hardening ✅
 
 | Task | Status | Notes |
 |---|---|---|
-| Migrations run | ✅ Done | Via entrypoint.sh on container start |
-| Superuser created | ✅ Done | Via `ensure_superuser` command + env vars |
-| Entrypoint fixed | ✅ Done | Sequential startup: migrate → collectstatic → superuser → gunicorn |
+| Migrations run | ✅ Done | Ghost migration fixed manually |
+| Superuser created | ✅ Done | admin.ksms promoted via Django shell |
+| Ghost migration fixed | ✅ Done | Added old_value/new_value columns to core_auditlog |
+| Procfile fixed | ✅ Done | Sequential startup: migrate → collectstatic → ensure_superuser → gunicorn |
 
 ### Pending
 
 | Task | Status | Notes |
 |---|---|---|
-| Upstash Redis | ⏳ Pending | Required for Celery workers |
-| Celery worker deployment | ⏳ Pending | Need Redis first |
-| Celery beat deployment | ⏳ Pending | Need Redis first |
 | Test M-Pesa STK push in production | ⏳ Pending | Sandbox configured |
 | Test email delivery end-to-end | ⏳ Pending | Resend SMTP configured |
+| Celery worker deployment | ⏳ Pending | Need Redis configured |
+| Celery beat deployment | ⏳ Pending | Need Redis configured |
 
 ---
 
 ## 3. Problems Encountered & Solutions Applied
 
-### Problem 1: Build Failed — Missing `requirements.txt`
-**Root Cause:** `requirements-prod.txt` includes `-r requirements.txt`, but Dockerfile only copied `requirements-prod.txt`.
+### Problem 1: ALLOWED_HOSTS Wildcard Mismatch
+**Root Cause:** Django doesn't support `*.onrender.com` wildcard syntax. It requires a leading dot (`.onrender.com`) for subdomain matching.
 
-**Solution:** Updated Dockerfile to copy both files.
-
----
-
-### Problem 2: Build Failed — Tailwind Source Files Missing
-**Root Cause:** Multi-stage Dockerfile tried to build Tailwind CSS, but pre-built CSS is already committed.
-
-**Solution:** Removed multi-stage build, simplified to single-stage Dockerfile.
+**Solution:** Updated `ALLOWED_HOSTS` to `.onrender.com` and `CSRF_TRUSTED_ORIGINS` to `https://.onrender.com`.
 
 ---
 
-### Problem 3: Build Failed — `collectstatic` at Build Time
-**Root Cause:** Railway injects environment variables at **runtime**, not during Docker build.
+### Problem 2: Ghost Migration (core_auditlog missing columns)
+**Root Cause:** Django's `django_migrations` table recorded migration 0008 as applied, but the actual `ALTER TABLE` commands never executed (likely from an interrupted deploy). This left the `core_auditlog` table missing `old_value` and `new_value` columns. When users logged in, Django tried to write an audit log entry → hit the missing column → 500 error.
 
-**Solution:** Moved `collectstatic` to runtime startup in entrypoint.sh.
-
----
-
-### Problem 4: Healthcheck Failed — Hardcoded Port 8000
-**Root Cause:** Railway assigns a random `PORT` env var. Dockerfile hardcoded `--bind 0.0.0.0:8000`.
-
-**Solution:** Use `$PORT` env var with fallback.
+**Solution:**
+1. Added missing columns (`old_value`, `new_value`) directly to the production `core_auditlog` table
+2. Promoted `admin.ksms` to full superuser (`is_staff=True`, `is_superuser=True`, `role=admin`)
+3. Fixed the Procfile so future deploys run `migrate → collectstatic → ensure_superuser → gunicorn`
 
 ---
 
-### Problem 5: Healthcheck Failed — `SECURE_SSL_REDIRECT=True`
-**Root Cause:** Healthcheck requests returned 301 redirects. Railway handles HTTPS at the edge.
+### Problem 3: Render CLI Download Timeout
+**Root Cause:** GitHub releases download timing out on slow connection.
 
-**Solution:** Set `SECURE_SSL_REDIRECT=False` in Railway env vars.
-
----
-
-### Problem 6: Healthcheck Failed — Wrong Path
-**Solution:** Changed healthcheck path to `/health/` in `railway.json`.
+**Solution:** Using Render REST API directly via `curl` instead of CLI binary.
 
 ---
 
-### Problem 7: 500 Error — Missing Static Files
-**Root Cause:** WhiteNoise's `CompressedManifestStaticFilesStorage` requires all referenced files to exist.
+### Problem 4: Railway Trial Expired
+**Root Cause:** Railway free trial expired, service would stop.
 
-**Solution:** Run `collectstatic` at startup (after env vars are available).
-
----
-
-### Problem 8: Race Conditions in Entrypoint
-**Root Cause:** Original entrypoint started gunicorn first, then ran migrations and collectstatic in background. This caused race conditions where gunicorn served pages before static files were collected or schema was ready.
-
-**Solution:** Restructured to sequential startup: `migrate → collectstatic → ensure_superuser → gunicorn`. The healthcheck timeout (300s) is generous enough to allow all steps to complete.
+**Solution:** Migrated to Render free tier (750 hrs/mo). All existing infrastructure (Supabase, Resend, Upstash) reused.
 
 ---
 
@@ -135,23 +124,25 @@ EXPOSE 8000
 CMD ["/app/entrypoint.sh"]
 ```
 
-### railway.json
-```json
-{
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": { "builder": "DOCKERFILE" },
-  "deploy": {
-    "healthcheckPath": "/health/",
-    "healthcheckTimeout": 300,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
-}
+### render.yaml
+```yaml
+services:
+  - type: web
+    name: ksms-django
+    env: docker
+    region: oregon
+    plan: free
+    healthCheckPath: /health/
+```
+
+### Procfile
+```
+web: gunicorn ksms.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile - --timeout 120
 ```
 
 ---
 
-## 5. Environment Variables (Railway)
+## 5. Environment Variables (Render)
 
 > [!CAUTION]
 > Never store actual secret values in documentation. See `.env.example` for the full list.
@@ -161,67 +152,60 @@ CMD ["/app/entrypoint.sh"]
 | `SECRET_KEY` | Django secret key |
 | `FIELD_ENCRYPTION_KEY` | Fernet encryption for sensitive fields |
 | `DEBUG` | `False` for production |
+| `ALLOWED_HOSTS` | `.onrender.com` (leading dot for subdomain matching) |
+| `CSRF_TRUSTED_ORIGINS` | `https://.onrender.com` |
 | `USE_SQLITE` | `False` — use PostgreSQL |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Supabase PostgreSQL |
-| `ALLOWED_HOSTS` | `*` (Railway handles host validation) |
-| `CSRF_TRUSTED_ORIGINS` | Railway app URL |
-| `SECURE_SSL_REDIRECT` | `False` (Railway handles HTTPS at edge) |
+| `SECURE_SSL_REDIRECT` | `False` (Render handles HTTPS at edge) |
 | `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | `True` |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Resend SMTP |
 | `DJANGO_SUPERUSER_USERNAME` | Auto-created superuser username |
 | `DJANGO_SUPERUSER_EMAIL` | Auto-created superuser email |
 | `DJANGO_SUPERUSER_PASSWORD` | Auto-created superuser password |
 | `MPESA_*` | Daraja API configuration |
+| `CELERY_BROKER_URL` | Render Redis URL |
+| `CELERY_RESULT_BACKEND` | Render Redis URL |
 
 ---
 
 ## 6. Quick Reference Commands
 
-### Railway CLI
+### Render REST API
 ```bash
-# Setup
-source "$HOME/.railway/env"
+# Set API key
+export RENDER_API_KEY=rnd_...
 
-# Check status
-railway status
+# List services
+curl -s https://api.render.com/v1/services -H "Authorization: Bearer $RENDER_API_KEY"
 
-# View logs
-railway logs --latest --lines 50
+# Get service details
+curl -s https://api.render.com/v1/services/exs-d86q9nfavr4c73ecassg -H "Authorization: Bearer $RENDER_API_KEY"
 
-# Deploy
-railway up --service ksms-django --detach
+# Trigger deploy
+curl -s -X POST https://api.render.com/v1/services/exs-d86q9nfavr4c73ecassg/deploys -H "Authorization: Bearer $RENDER_API_KEY"
 
-# Set variables (example)
-railway variables set DJANGO_SUPERUSER_USERNAME='admin.ksms'
-railway variables set DJANGO_SUPERUSER_EMAIL='admin@example.com'
-railway variables set DJANGO_SUPERUSER_PASSWORD='YourSecurePassword'
-```
-
-### Git Commands
-```bash
-# Trigger Railway deploy
-git add -A && git commit -m "fix: description" && git push origin main
+# Get deploy logs
+curl -s https://api.render.com/v1/services/exs-d86q9nfavr4c73ecassg/deploys -H "Authorization: Bearer $RENDER_API_KEY"
 ```
 
 ### Health Checks
 ```bash
-curl -s https://ksms-django-production.up.railway.app/health/
-curl -s -o /dev/null -w "HTTP: %{http_code}\n" https://ksms-django-production.up.railway.app/
+curl -s https://ksms-django.onrender.com/health/
+curl -s -o /dev/null -w "HTTP: %{http_code}\n" https://ksms-django.onrender.com/
 ```
 
 ---
 
 ## 7. Lessons Learned
 
-1. **Railway injects env vars at runtime, not build time** — Never run Django commands in Dockerfile `RUN` steps.
-2. **Railway assigns random PORT** — Always use `$PORT` env var, never hardcode ports.
-3. **`SECURE_SSL_REDIRECT` breaks healthchecks** — Set to `False` behind Railway's HTTPS termination.
-4. **`collectstatic` must run after env vars are available** — Move to entrypoint, not Dockerfile RUN.
-5. **Sequential startup beats backgrounded tasks** — Race conditions cause intermittent 500 errors.
-6. **GitHub webhook required for auto-deploys** — Connect repo in Railway dashboard.
-7. **WhiteNoise needs all static files** — `CompressedManifestStaticFilesStorage` fails if any referenced file is missing.
+1. **Django ALLOWED_HOSTS requires leading dot** — `.onrender.com` not `*.onrender.com` for subdomain matching
+2. **Ghost migrations can occur** — If a deploy is interrupted, `django_migrations` may record a migration as applied when it wasn't
+3. **Railway trial expires** — Plan ahead or have a backup hosting option
+4. **Render free tier spins down** — After 15 min idle, first request takes ~30s
+5. **Render CLI download can timeout** — Use REST API as fallback
+6. **Sequential startup is critical** — Migrations must complete before gunicorn starts
 
 ---
 
-*Last Updated: 2026-05-20 12:58 EAT*  
-*Status: App deployed and operational*
+*Last Updated: 2026-05-20 16:30 EAT*  
+*Status: App deployed and operational on Render*
