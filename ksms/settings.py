@@ -276,7 +276,7 @@ X_FRAME_OPTIONS = 'DENY'
 
 CSP_SCRIPT_SRC = config(
     'CSP_SCRIPT_SRC',
-    default="'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+    default="'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com",
 )
 CSP_STYLE_SRC = config(
     'CSP_STYLE_SRC',

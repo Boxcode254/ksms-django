@@ -37,7 +37,7 @@ services:
       - key: CONN_HEALTH_CHECKS
         value: "True"
       - key: SECURE_SSL_REDIRECT
-        value: "False"
+        value: "True"
       - key: SESSION_COOKIE_SECURE
         value: "True"
       - key: CSRF_COOKIE_SECURE

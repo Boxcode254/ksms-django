@@ -28,9 +28,47 @@ class Command(BaseCommand):
         school_code = options["school_code"].upper()
         password = options["password"]
         today = timezone.localdate()
+        
+        # Clean up old demo users and related records to prevent unique/foreign key conflicts
+        from academics.models import TeachingAssignment, ClassSection, Teacher, GradeResult
+        from finance.models import Invoice, Payment, FeeStructure
+        from students.models import Enrollment, Student, Guardian, StudentGuardianRelationship
+        from attendance.models import DailyAttendance, PeriodAttendance
+
+        GradeResult._base_manager.all().delete()
+        PeriodAttendance._base_manager.all().delete()
+        DailyAttendance._base_manager.all().delete()
+        Payment._base_manager.all().delete()
+        Invoice._base_manager.all().delete()
+        Enrollment._base_manager.all().delete()
+        FeeStructure._base_manager.all().delete()
+        TeachingAssignment._base_manager.all().delete()
+        ClassSection._base_manager.all().delete()
+        StudentGuardianRelationship._base_manager.all().delete()
+        Student._base_manager.all().delete()
+        Guardian._base_manager.all().delete()
+        Teacher._base_manager.all().delete()
+        User.objects.filter(username__in=[
+            "teacher.mwangi", "teacher.otieno", "teacher.ruth", "teacher.betty",
+            "student.aisha", "student.baraka", "student.natasha", "student.leroy",
+            "guardian.wanjiku", "guardian.odhiambo", "admin.school"
+        ]).delete()
+
         school = self._create_school(school_code)
         academic_year = self._create_academic_year(school, today)
         term = self._create_term(school, academic_year, today)
+
+        # Create school admin user
+        self._ensure_user(
+            username="admin.school",
+            role=User.Role.SCHOOL_ADMIN,
+            password=password,
+            email="admin.school@ksms-demo.example.com",
+            first_name="School",
+            last_name="Admin",
+            phone="+254700000000",
+            school=school,
+        )
 
         teachers = self._create_teachers(school, password)
         sections = self._create_class_sections(school, academic_year, teachers)
@@ -50,9 +88,9 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Phase 2 demo data is ready."))
         self.stdout.write("Demo accounts use the password supplied to this command.")
-        self.stdout.write("Seeded users: teacher.mwangi, teacher.otieno, guardian.wanjiku, guardian.odhiambo, student.aisha, student.baraka")
+        self.stdout.write("Seeded users: admin.school, teacher.ruth, teacher.betty, guardian.wanjiku, guardian.odhiambo, student.natasha, student.leroy")
 
-    def _ensure_user(self, *, username, role, password, email, first_name, last_name, phone):
+    def _ensure_user(self, *, username, role, password, email, first_name, last_name, phone, school=None):
         user, _ = User.objects.get_or_create(
             username=username,
             defaults={
@@ -62,6 +100,7 @@ class Command(BaseCommand):
                 "phone": phone,
                 "role": role,
                 "is_active": True,
+                "school": school,
             },
         )
         changed_fields = []
@@ -72,6 +111,7 @@ class Command(BaseCommand):
             "phone": phone,
             "role": role,
             "is_active": True,
+            "school": school,
         }.items():
             if getattr(user, field) != value:
                 setattr(user, field, value)
@@ -85,7 +125,7 @@ class Command(BaseCommand):
         school, _ = School.objects.update_or_create(
             code=school_code,
             defaults={
-                "name": "Kenya School Management System Demo School",
+                "name": "Springs Of Life Academy",
                 "slug": f"{school_code.lower()}-demo-school",
                 "registration_number": "DEMO-SCHOOL-001",
                 "email": "info@ksms-demo.example.com",
@@ -129,20 +169,20 @@ class Command(BaseCommand):
     def _create_teachers(self, school, password):
         teacher_specs = [
             {
-                "username": "teacher.mwangi",
-                "email": "teacher.mwangi@ksms-demo.example.com",
-                "first_name": "Grace",
-                "last_name": "Mwangi",
+                "username": "teacher.ruth",
+                "email": "teacher.ruth@ksms-demo.example.com",
+                "first_name": "Ruth",
+                "last_name": "Wambui",
                 "phone": "+254711111111",
                 "employee_number": "TCHR-001",
                 "tsc_number": "TSC001",
                 "specialization": "Mathematics",
             },
             {
-                "username": "teacher.otieno",
-                "email": "teacher.otieno@ksms-demo.example.com",
-                "first_name": "Peter",
-                "last_name": "Otieno",
+                "username": "teacher.betty",
+                "email": "teacher.betty@ksms-demo.example.com",
+                "first_name": "Betty",
+                "last_name": "Achieng",
                 "phone": "+254722222222",
                 "employee_number": "TCHR-002",
                 "tsc_number": "TSC002",
@@ -159,6 +199,7 @@ class Command(BaseCommand):
                 first_name=spec["first_name"],
                 last_name=spec["last_name"],
                 phone=spec["phone"],
+                school=school,
             )
             teacher, _ = Teacher.objects.update_or_create(
                 user=user,
@@ -175,8 +216,8 @@ class Command(BaseCommand):
 
     def _create_class_sections(self, school, academic_year, teachers):
         section_specs = [
-            ("Form 1", "A", teachers["teacher.mwangi"], "Blue Room"),
-            ("Form 1", "B", teachers["teacher.otieno"], "Green Room"),
+            ("Grade 1", "A", teachers["teacher.ruth"], "Blue Room"),
+            ("Grade 2", "B", teachers["teacher.betty"], "Green Room"),
         ]
         sections = {}
         for grade_level, stream, homeroom_teacher, room_name in section_specs:
@@ -218,12 +259,12 @@ class Command(BaseCommand):
 
     def _create_teaching_assignments(self, school, sections, subjects, teachers):
         assignments = [
-            (sections["A"], subjects["MAT"], teachers["teacher.mwangi"]),
-            (sections["A"], subjects["ENG"], teachers["teacher.otieno"]),
-            (sections["A"], subjects["KIS"], teachers["teacher.otieno"]),
-            (sections["B"], subjects["MAT"], teachers["teacher.mwangi"]),
-            (sections["B"], subjects["ENG"], teachers["teacher.otieno"]),
-            (sections["B"], subjects["KIS"], teachers["teacher.otieno"]),
+            (sections["A"], subjects["MAT"], teachers["teacher.ruth"]),
+            (sections["A"], subjects["ENG"], teachers["teacher.betty"]),
+            (sections["A"], subjects["KIS"], teachers["teacher.betty"]),
+            (sections["B"], subjects["MAT"], teachers["teacher.ruth"]),
+            (sections["B"], subjects["ENG"], teachers["teacher.betty"]),
+            (sections["B"], subjects["KIS"], teachers["teacher.betty"]),
         ]
         for class_section, subject, teacher in assignments:
             TeachingAssignment.objects.update_or_create(
@@ -267,6 +308,7 @@ class Command(BaseCommand):
                 first_name=spec["first_name"],
                 last_name=spec["last_name"],
                 phone=spec["phone"],
+                school=school,
             )
             guardian, _ = Guardian.objects.update_or_create(
                 user=user,
@@ -283,18 +325,18 @@ class Command(BaseCommand):
     def _create_students(self, school, password):
         student_specs = [
             {
-                "username": "student.aisha",
-                "email": "student.aisha@ksms-demo.example.com",
-                "first_name": "Aisha",
+                "username": "student.natasha",
+                "email": "student.natasha@ksms-demo.example.com",
+                "first_name": "Natasha",
                 "last_name": "Njeri",
                 "phone": "+254755555555",
                 "admission_number": "ADM-001",
                 "gender": Student.Gender.FEMALE,
             },
             {
-                "username": "student.baraka",
-                "email": "student.baraka@ksms-demo.example.com",
-                "first_name": "Baraka",
+                "username": "student.leroy",
+                "email": "student.leroy@ksms-demo.example.com",
+                "first_name": "Leroy",
                 "last_name": "Otieno",
                 "phone": "+254766666666",
                 "admission_number": "ADM-002",
@@ -311,6 +353,7 @@ class Command(BaseCommand):
                 first_name=spec["first_name"],
                 last_name=spec["last_name"],
                 phone=spec["phone"],
+                school=school,
             )
             student, _ = Student.objects.update_or_create(
                 school=school,
@@ -328,8 +371,8 @@ class Command(BaseCommand):
 
     def _link_guardians(self, students, guardians):
         links = [
-            (students["student.aisha"], guardians["guardian.wanjiku"], StudentGuardianRelationship.Relationship.MOTHER),
-            (students["student.baraka"], guardians["guardian.odhiambo"], StudentGuardianRelationship.Relationship.FATHER),
+            (students["student.natasha"], guardians["guardian.wanjiku"], StudentGuardianRelationship.Relationship.MOTHER),
+            (students["student.leroy"], guardians["guardian.odhiambo"], StudentGuardianRelationship.Relationship.FATHER),
         ]
         for student, guardian, relationship in links:
             StudentGuardianRelationship.objects.update_or_create(
@@ -346,8 +389,8 @@ class Command(BaseCommand):
 
     def _create_enrollments(self, school, academic_year, term, sections, students):
         enrollment_specs = [
-            (students["student.aisha"], sections["A"], 1),
-            (students["student.baraka"], sections["B"], 2),
+            (students["student.natasha"], sections["A"], 1),
+            (students["student.leroy"], sections["B"], 2),
         ]
         enrollments = []
         for student, class_section, roll_number in enrollment_specs:
@@ -368,7 +411,7 @@ class Command(BaseCommand):
         return enrollments
 
     def _create_attendance(self, enrollments, subjects, teachers, today):
-        teacher_user = teachers["teacher.mwangi"].user
+        teacher_user = teachers["teacher.ruth"].user
         for enrollment in enrollments:
             DailyAttendance.objects.update_or_create(
                 enrollment=enrollment,
@@ -420,7 +463,7 @@ class Command(BaseCommand):
         return fee_structures
 
     def _create_invoices_and_payments(self, enrollments, fee_structures, teachers):
-        first_teacher_user = teachers["teacher.mwangi"].user
+        first_teacher_user = teachers["teacher.ruth"].user
         for enrollment in enrollments:
             fee_structure = fee_structures[enrollment.class_section.stream]
             invoice, _ = Invoice.objects.update_or_create(
@@ -474,7 +517,7 @@ class Command(BaseCommand):
             "ADM-001": {"MAT": Decimal("78.50"), "ENG": Decimal("81.00")},
             "ADM-002": {"MAT": Decimal("72.00"), "ENG": Decimal("76.50")},
         }
-        teacher_user = teachers["teacher.mwangi"].user
+        teacher_user = teachers["teacher.ruth"].user
         for enrollment in enrollments:
             for subject_code, score in result_specs[enrollment.student.admission_number].items():
                 GradeResult.objects.update_or_create(
