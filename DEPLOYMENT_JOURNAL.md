@@ -53,6 +53,28 @@
 | Ghost migration fixed | ✅ Done | Added old_value/new_value columns to core_auditlog |
 | Procfile fixed | ✅ Done | Sequential startup: migrate → collectstatic → ensure_superuser → gunicorn |
 
+### Day 4 — Data Seeding & CSRF/CSP Fixes ✅
+
+| Task | Status | Notes |
+|---|---|---|
+| Finance migration schema drift | ✅ Fixed | Faked back to 0002, re-ran cleanly |
+| Demo data seeded | ✅ Done | School, 2 teachers, 2 students, 2 guardians, enrollments, grades, payments |
+| Demo accounts synced | ✅ Done | allauth email verification, password set to ChangeMe12345! |
+| CSP whitelist fix | ✅ Done | Added `https://unpkg.com` to `CSP_SCRIPT_SRC` — HTMX was blocked in production |
+| SECURE_SSL_REDIRECT | ✅ Fixed | Changed from `False` to `True` — was root cause of CSRF failures over HTTP |
+| All 4 role logins verified | ✅ Done | admin.school, teacher.ruth, guardian.wanjiku, student.natasha |
+
+### Day 5 — Testing & Hardening ✅
+
+| Task | Status | Notes |
+|---|---|---|
+| `python manage.py check --deploy` | ✅ Pass | 0 issues with production-style env values |
+| Full test suite | ✅ Pass | 258 tests, 0 failures |
+| Security headers audit | ✅ Pass | HSTS, CSP, X-Frame-Options, Referrer-Policy all correct |
+| HTTP→HTTPS redirect | ✅ Pass | `http://` returns 301 → `https://` |
+| 404 error page | ✅ Pass | No debug info or stack traces exposed |
+| Rate limiting | ✅ Verified | CSRF gate blocks brute-force before rate limiter; rate limiter fires in allauth adapter |
+
 ### Pending
 
 | Task | Status | Notes |
@@ -90,7 +112,20 @@
 
 ---
 
-### Problem 4: Railway Trial Expired
+### Problem 4: CSRF Verification Failed (403) on Production Login
+**Root Cause:** Two compounding issues:
+1. `SECURE_SSL_REDIRECT` was set to `False` in `render.yaml`, so users visiting `http://ksms-django.onrender.com` were NOT redirected to HTTPS.
+2. With `CSRF_COOKIE_SECURE=True` and `SESSION_COOKIE_SECURE=True`, the browser refused to send secure cookies over HTTP.
+3. `CSP_SCRIPT_SRC` did not include `https://unpkg.com`, so HTMX was blocked by Content-Security-Policy in production (`DEBUG=False`).
+
+**Solution:**
+1. Changed `SECURE_SSL_REDIRECT` from `False` to `True` in `render.yaml` — forces HTTP→HTTPS redirect
+2. Added `https://unpkg.com` to `CSP_SCRIPT_SRC` default in `settings.py`
+3. Pushed to main → auto-deployed to Render → verified all 4 roles can login and logout cleanly
+
+---
+
+### Problem 5: Railway Trial Expired
 **Root Cause:** Railway free trial expired, service would stop.
 
 **Solution:** Migrated to Render free tier (750 hrs/mo). All existing infrastructure (Supabase, Resend, Upstash) reused.
@@ -156,7 +191,7 @@ web: gunicorn ksms.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --access-lo
 | `CSRF_TRUSTED_ORIGINS` | `https://.onrender.com` |
 | `USE_SQLITE` | `False` — use PostgreSQL |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Supabase PostgreSQL |
-| `SECURE_SSL_REDIRECT` | `False` (Render handles HTTPS at edge) |
+| `SECURE_SSL_REDIRECT` | `True` (forces HTTP→HTTPS redirect) |
 | `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | `True` |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Resend SMTP |
 | `DJANGO_SUPERUSER_USERNAME` | Auto-created superuser username |
@@ -204,8 +239,10 @@ curl -s -o /dev/null -w "HTTP: %{http_code}\n" https://ksms-django.onrender.com/
 4. **Render free tier spins down** — After 15 min idle, first request takes ~30s
 5. **Render CLI download can timeout** — Use REST API as fallback
 6. **Sequential startup is critical** — Migrations must complete before gunicorn starts
+7. **SECURE_SSL_REDIRECT must be True behind Render** — With `SECURE_PROXY_SSL_HEADER` configured, Django correctly detects HTTPS via `X-Forwarded-Proto` and will not cause redirect loops. Setting it to `False` allows HTTP access, which breaks secure cookies.
+8. **CSP must whitelist all CDN origins** — If a script tag uses `https://unpkg.com` but CSP only allows `cdn.jsdelivr.net` and `cdnjs.cloudflare.com`, the browser silently blocks the script in production.
 
 ---
 
-*Last Updated: 2026-05-20 16:30 EAT*  
-*Status: App deployed and operational on Render*
+*Last Updated: 2026-05-21 07:15 EAT*  
+*Status: App deployed, hardened, and verified on Render*

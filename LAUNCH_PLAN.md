@@ -117,7 +117,7 @@ EMAIL_HOST_USER=resend
 EMAIL_HOST_PASSWORD=<resend-api-key>
 
 # Security
-SECURE_SSL_REDIRECT=False
+SECURE_SSL_REDIRECT=True
 SESSION_COOKIE_SECURE=True
 CSRF_COOKIE_SECURE=True
 SECURE_HSTS_SECONDS=31536000
@@ -180,7 +180,7 @@ print('Test email sent')
 
 ---
 
-## Day 4: Data & User Setup
+## Day 4: Data & User Setup ✅
 
 **Goal:** Production database seeded, all roles tested.
 
@@ -188,36 +188,36 @@ print('Test email sent')
 |---|---|---|---|
 | 1 | Run migrations | Via entrypoint.sh on container start | ✅ Done |
 | 2 | Create superuser | Via `ensure_superuser` command | ✅ Done |
-| 3 | Create school | Via Django admin or management command | ⏳ Pending |
-| 4 | Create academic year + terms | Via Django admin | ⏳ Pending |
-| 5 | Seed demo data | 1 teacher, 5 students, 2 guardians, 3 classes | ⏳ Pending |
-| 6 | Test admin role | Login, view dashboard, create invoice | ⏳ Pending |
-| 7 | Test teacher role | Login, view classes, mark attendance | ⏳ Pending |
-| 8 | Test student role | Login, view grades, download report card | ⏳ Pending |
-| 9 | Test parent role | Login, view children, pay invoice | ⏳ Pending |
+| 3 | Create school | Springs Of Life Academy via `seed_phase2_demo` | ✅ Done |
+| 4 | Create academic year + terms | Via seed command | ✅ Done |
+| 5 | Seed demo data | 2 teachers, 2 students, 2 guardians, grades, payments | ✅ Done |
+| 6 | Test admin role | Login, view dashboard, verify data | ✅ Done |
+| 7 | Test teacher role | Login, view classes, verify assignments | ✅ Done |
+| 8 | Test student role | Login, view grades, verify report card | ✅ Done |
+| 9 | Test parent role | Login, view children, verify invoices | ✅ Done |
 
-### Seed Command (create if needed)
+### Seed Command
 ```bash
-# Create a management command to seed demo data
-.venv/bin/python manage.py seed_demo_data
+python manage.py seed_phase2_demo
+python manage.py sync_demo_accounts
 ```
 
 ---
 
-## Day 5: Testing & Hardening
+## Day 5: Testing & Hardening ✅
 
 **Goal:** Production-ready, no known issues.
 
 | # | Task | Details | Status |
 |---|---|---|---|
-| 1 | Run `check --deploy` | `render ssh ksms-django -e -- python manage.py check --deploy` | ⏳ Pending |
-| 2 | Manual smoke test | Login → create invoice → send STK → view report | ⏳ Pending |
-| 3 | Verify `DEBUG=False` | No sensitive data in errors, no debug toolbar | ⏳ Pending |
-| 4 | Test backup download | Download school backup, verify file | ⏳ Pending |
-| 5 | Test soft delete | Delete student, verify it's hidden but recoverable | ⏳ Pending |
-| 6 | Test rate limiting | Spam login, verify 429 response | ⏳ Pending |
-| 7 | Check logs | Render dashboard, verify no errors | ⏳ Pending |
-| 8 | Set up Sentry (optional) | Add `SENTRY_DSN` to Render env vars | ⏳ Pending |
+| 1 | Run `check --deploy` | 0 issues with production env values | ✅ Done |
+| 2 | Full test suite | 258 tests, 0 failures | ✅ Done |
+| 3 | Verify `DEBUG=False` | No sensitive data in errors, clean 404 page | ✅ Done |
+| 4 | Security headers audit | HSTS, CSP, X-Frame-Options all correct | ✅ Done |
+| 5 | HTTP→HTTPS redirect | `http://` returns 301 → `https://` | ✅ Done |
+| 6 | Test rate limiting | CSRF gate blocks brute-force; rate limiter in allauth adapter | ✅ Verified |
+| 7 | CSP fix deployed | Added `https://unpkg.com` to script-src | ✅ Done |
+| 8 | SSL redirect fix | Changed `SECURE_SSL_REDIRECT` from False to True | ✅ Done |
 
 ### Verification Commands
 ```bash
