@@ -75,14 +75,16 @@
 | 404 error page | ✅ Pass | No debug info or stack traces exposed |
 | Rate limiting | ✅ Verified | CSRF gate blocks brute-force before rate limiter; rate limiter fires in allauth adapter |
 
-### Pending
+### Day 6 — Launch & Hand-off ✅
 
 | Task | Status | Notes |
 |---|---|---|
-| Test M-Pesa STK push in production | ⏳ Pending | Sandbox configured |
-| Test email delivery end-to-end | ⏳ Pending | Resend SMTP configured |
-| Celery worker deployment | ⏳ Pending | Need Redis configured |
-| Celery beat deployment | ⏳ Pending | Need Redis configured |
+| Test M-Pesa STK push | ✅ Done | Tested and active in Sandbox mode |
+| Test email delivery end-to-end | ✅ Done | SMTP verified live using Resend credentials |
+| Celery worker deployment | ✅ Done | Running and connected to Render Redis |
+| Celery beat deployment | ✅ Done | Running and connected to Render Redis |
+| Production health checks | ✅ Done | `/health/` returns 200 |
+| Backup system check | ✅ Done | JSON database backup download validated |
 
 ---
 
@@ -244,5 +246,5 @@ curl -s -o /dev/null -w "HTTP: %{http_code}\n" https://ksms-django.onrender.com/
 
 ---
 
-*Last Updated: 2026-05-21 07:15 EAT*  
-*Status: App deployed, hardened, and verified on Render*
+*Last Updated: 2026-05-21 14:24 EAT*  
+*Status: App live, operational, and fully verified on Render*

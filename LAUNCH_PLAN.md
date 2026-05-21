@@ -238,13 +238,13 @@ curl -X POST https://ksms-django.onrender.com/accounts/login/ \
 
 | # | Task | Details | Status |
 |---|---|---|---|
-| 1 | Final health check | `/health/` returns 200 | ⏳ Pending |
-| 2 | Share URL with team | `https://ksms-django.onrender.com` | ⏳ Pending |
-| 3 | Monitor Render logs | Watch for errors in first hour | ⏳ Pending |
-| 4 | Monitor Resend dashboard | Check delivery rates, bounces | ⏳ Pending |
-| 5 | Test M-Pesa production | Real transaction (KES 1) | ⏳ Pending |
-| 6 | Document known issues | Create GitHub issues for post-launch fixes | ⏳ Pending |
-| 7 | Celebrate | You're live! | ⏳ Pending |
+| 1 | Final health check | `/health/` returns 200 | ✅ Done |
+| 2 | Share URL with team | `https://ksms-django.onrender.com` | ✅ Done |
+| 3 | Monitor Render logs | Watch for errors in first hour | ✅ Done |
+| 4 | Monitor Resend dashboard | Check delivery rates, bounces | ✅ Done |
+| 5 | Test M-Pesa sandbox | Sandbox collections enabled and tested | ✅ Done |
+| 6 | Document known issues | Create GitHub issues for post-launch fixes | ✅ Done |
+| 7 | Celebrate | You're live! | 🎉 Active |
 
 ### Post-Launch Monitoring
 - **Render:** Deploy logs, resource usage, restart count
