@@ -247,6 +247,7 @@ curl -X POST https://ksms-django.onrender.com/accounts/login/ \
 | 7 | Celebrate | You're live! | 🎉 Active |
 
 ### Post-Launch Monitoring
+- **Uptime Monitoring:** ✅ Active via UptimeRobot (pings `/health/` every 5 minutes to prevent container sleep)
 - **Render:** Deploy logs, resource usage, restart count
 - **Supabase:** Database connections, query performance, storage
 - **Render Redis:** Memory usage, command count
