@@ -243,8 +243,9 @@ curl -s -o /dev/null -w "HTTP: %{http_code}\n" https://ksms-django.onrender.com/
 6. **Sequential startup is critical** — Migrations must complete before gunicorn starts
 7. **SECURE_SSL_REDIRECT must be True behind Render** — With `SECURE_PROXY_SSL_HEADER` configured, Django correctly detects HTTPS via `X-Forwarded-Proto` and will not cause redirect loops. Setting it to `False` allows HTTP access, which breaks secure cookies.
 8. **CSP must whitelist all CDN origins** — If a script tag uses `https://unpkg.com` but CSP only allows `cdn.jsdelivr.net` and `cdnjs.cloudflare.com`, the browser silently blocks the script in production.
+9. **Celery can run in a single container on Free Tier** — By launching the Celery worker and beat in the background from the entrypoint script and keeping the container warm with an external monitor, we can process background tasks without additional paid background worker services.
 
 ---
 
-*Last Updated: 2026-05-21 14:24 EAT*  
-*Status: App live, operational, and fully verified on Render*
+*Last Updated: 2026-05-25 16:45 EAT*  
+*Status: App live, operational, with background Celery running in the web container*
