@@ -22,8 +22,15 @@ echo "[3/4] Ensuring superuser..."
 python manage.py ensure_superuser 2>&1
 echo "      Superuser check complete."
 
-# Step 4: Start gunicorn
-echo "[4/4] Starting gunicorn on port ${PORT:-8000}..."
+# Step 4: Start Celery Worker & Beat in the background
+echo "[4/5] Starting Celery Worker (concurrency=1)..."
+celery -A ksms worker --loglevel=info --concurrency=1 &
+
+echo "[5/5] Starting Celery Beat..."
+celery -A ksms beat --loglevel=info &
+
+# Step 5: Start gunicorn
+echo "Starting gunicorn on port ${PORT:-8000}..."
 exec gunicorn ksms.wsgi:application \
     --bind "0.0.0.0:${PORT:-8000}" \
     --workers 2 \
