@@ -286,17 +286,22 @@ def _academic_summary_filtered_qs(request):
 # Attendance Report
 # ---------------------------------------------------------------------------
 
-class AttendanceReportView(ReportsAdminTeacherMixin, ListView):
+class AttendanceReportView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = DailyAttendance
+    # DailyAttendance -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = 'reports/attendance_report.html'
     context_object_name = 'records'
     paginate_by = 50
     permission_required = 'attendance.view_dailyattendance'
 
+    def get_unscoped_queryset(self):
+        return _attendance_filtered_qs(self.request)
+
     def get_queryset(self):
-        qs = _attendance_filtered_qs(self.request)
-        self._qs = qs
-        return qs
+        # Same scoped queryset powers the page and the context aggregates.
+        self._qs = super().get_queryset()
+        return self._qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -398,17 +403,22 @@ class AttendanceReportPDFView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixi
 # Fee Report
 # ---------------------------------------------------------------------------
 
-class FeeReportView(ReportsAdminOnlyMixin, ListView):
+class FeeReportView(SchoolScopedQuerysetMixin, ReportsAdminOnlyMixin, ListView):
     model = Invoice
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = 'reports/fee_report.html'
     context_object_name = 'invoices'
     paginate_by = 50
     permission_required = 'finance.view_invoice'
 
+    def get_unscoped_queryset(self):
+        return _fee_filtered_qs(self.request)
+
     def get_queryset(self):
-        qs = _fee_filtered_qs(self.request)
-        self._qs = qs
-        return qs
+        # Same scoped queryset powers the page and the context aggregates.
+        self._qs = super().get_queryset()
+        return self._qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -515,17 +525,22 @@ class FeeReportPDFView(SchoolScopedQuerysetMixin, ReportsAdminOnlyMixin, ListVie
 # Student Register
 # ---------------------------------------------------------------------------
 
-class StudentRegisterView(ReportsAdminTeacherMixin, ListView):
+class StudentRegisterView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = Enrollment
+    # Enrollment has a direct school FK.
+    school_lookup = "school_id"
     template_name = 'reports/student_register.html'
     context_object_name = 'enrollments'
     paginate_by = 50
     permission_required = ('students.view_enrollment', 'students.view_student')
 
+    def get_unscoped_queryset(self):
+        return _student_register_filtered_qs(self.request)
+
     def get_queryset(self):
-        qs = _student_register_filtered_qs(self.request)
-        self._qs = qs
-        return qs
+        # Same scoped queryset powers the page and the context aggregates.
+        self._qs = super().get_queryset()
+        return self._qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -616,17 +631,22 @@ class StudentRegisterPDFView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin
 # Academic Summary
 # ---------------------------------------------------------------------------
 
-class AcademicSummaryView(ReportsAdminTeacherMixin, ListView):
+class AcademicSummaryView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = GradeResult
+    # GradeResult -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = 'reports/academic_summary.html'
     context_object_name = 'results'
     paginate_by = 50
     permission_required = 'academics.view_graderesult'
 
+    def get_unscoped_queryset(self):
+        return _academic_summary_filtered_qs(self.request)
+
     def get_queryset(self):
-        qs = _academic_summary_filtered_qs(self.request)
-        self._qs = qs
-        return qs
+        # Same scoped queryset powers the page and the context aggregates.
+        self._qs = super().get_queryset()
+        return self._qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -725,18 +745,31 @@ class AcademicSummaryPDFView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin
 # Student Report Card
 # ---------------------------------------------------------------------------
 
-class StudentReportCardView(LoginRequiredMixin, TemplateView):
+class StudentReportCardView(LoginRequiredMixin, SchoolScopedQuerysetMixin, TemplateView):
     template_name = 'reports/report_card.html'
+    # The staff branch of dispatch resolves a Student — path Student -> school.
+    school_lookup = "school_id"
 
     def dispatch(self, request, *args, **kwargs):
-        student = get_object_or_404(Student, pk=kwargs['pk'])
         user = request.user
+        if user.is_authenticated and user.role in (User.Role.SCHOOL_ADMIN, User.Role.TEACHER):
+            # Staff: school-scoped — another school's student does not exist
+            # (404), it is not "forbidden".
+            student = get_object_or_404(
+                self.scope_queryset_to_school(Student.objects.all()),
+                pk=kwargs['pk'],
+            )
+        else:
+            # Non-staff roles resolve below against their own records only;
+            # keep the pre-scoping fetch order (404 on a missing pk even for
+            # anonymous users, then the login redirect).
+            student = get_object_or_404(Student, pk=kwargs['pk'])
 
         if not user.is_authenticated:
             from django.contrib.auth.views import redirect_to_login
             return redirect_to_login(request.get_full_path())
 
-        # Admin or teacher: unrestricted
+        # Admin or teacher: own school only (fetched scoped above)
         if user.role in (User.Role.SCHOOL_ADMIN, User.Role.TEACHER):
             self.student = student
             return super().dispatch(request, *args, **kwargs)

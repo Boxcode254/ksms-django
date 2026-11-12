@@ -178,7 +178,7 @@ class CBCReportCreateView(CBCStaffMixin, CreateView):
         return HttpResponseRedirect(reverse("cbc:report-edit", args=[report.pk]))
 
 
-class CBCReportUpdateView(CBCStaffMixin, View):
+class CBCReportUpdateView(SchoolScopedQuerysetMixin, CBCStaffMixin, View):
     """Single page bringing together the remarks form, assessment formset,
     and core-competency formset.
 
@@ -187,13 +187,18 @@ class CBCReportUpdateView(CBCStaffMixin, View):
     becomes confusing once we have three forms to validate together.
     """
     template_name = "cbc/report_form.html"
+    # CBCReport -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
 
     def _get_report(self, pk):
+        # School-scoped: staff of another school get 404, not the form.
         return get_object_or_404(
-            CBCReport.objects.select_related(
-                "enrollment__student__user",
-                "enrollment__class_section",
-                "term__academic_year",
+            self.scope_queryset_to_school(
+                CBCReport.objects.select_related(
+                    "enrollment__student__user",
+                    "enrollment__class_section",
+                    "term__academic_year",
+                )
             ),
             pk=pk,
         )
@@ -329,18 +334,33 @@ class CBCReportUpdateView(CBCStaffMixin, View):
         }
 
 
-class CBCReportDetailView(LoginRequiredMixin, DetailView):
+class CBCReportDetailView(SchoolScopedQuerysetMixin, LoginRequiredMixin, DetailView):
     model = CBCReport
+    # CBCReport -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = "cbc/report_detail.html"
     context_object_name = "report"
 
-    def get_queryset(self):
+    def get_unscoped_queryset(self):
         return CBCReport.objects.select_related(
             "enrollment__student__user",
             "enrollment__class_section",
             "enrollment__school",
             "term__academic_year",
         )
+
+    def get_queryset(self):
+        qs = self.get_unscoped_queryset()
+        user = self.request.user
+        if user.is_authenticated and user.role in (
+            User.Role.SCHOOL_ADMIN,
+            User.Role.TEACHER,
+        ):
+            # Staff: school-scoped — another school's report 404s here, so it
+            # never reaches _user_can_view_report. Students and parents keep
+            # their relationship-based checks in dispatch() below.
+            qs = self.scope_queryset_to_school(qs)
+        return qs
 
     def dispatch(self, request, *args, **kwargs):
         # LoginRequiredMixin runs first via MRO and handles unauth redirects.
@@ -364,9 +384,14 @@ class CBCReportDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class CBCReportRefreshAttendanceView(CBCStaffMixin, View):
+class CBCReportRefreshAttendanceView(SchoolScopedQuerysetMixin, CBCStaffMixin, View):
+    # CBCReport -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
+
     def post(self, request, pk):
-        report = get_object_or_404(CBCReport, pk=pk)
+        report = get_object_or_404(
+            self.scope_queryset_to_school(CBCReport.objects.all()), pk=pk
+        )
         report.snapshot_attendance()
         report.save(update_fields=["total_school_days", "days_present", "updated_at"])
         messages.success(request, "Attendance snapshot refreshed.")
@@ -424,11 +449,23 @@ class CBCReportPDFView(LoginRequiredMixin, View):
 # Per-student history
 # ---------------------------------------------------------------------------
 
-class StudentCBCHistoryView(LoginRequiredMixin, View):
+class StudentCBCHistoryView(LoginRequiredMixin, SchoolScopedQuerysetMixin, View):
     template_name = "cbc/student_history.html"
+    # dispatch() fetches a Student — path Student -> school.
+    school_lookup = "school_id"
 
     def get(self, request, student_pk):
-        student = get_object_or_404(Student, pk=student_pk)
+        user = request.user
+        if user.is_authenticated and user.role in (
+            User.Role.SCHOOL_ADMIN,
+            User.Role.TEACHER,
+        ):
+            # Staff: school-scoped — another school's student does not exist.
+            student = get_object_or_404(
+                self.scope_queryset_to_school(Student.objects.all()), pk=student_pk
+            )
+        else:
+            student = get_object_or_404(Student, pk=student_pk)
         # Build a synthetic "report" check for one of the student's reports
         # to reuse the same access predicate.
         any_report = (

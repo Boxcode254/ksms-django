@@ -267,23 +267,28 @@ class InvoiceListView(HtmxTemplateMixin, FinanceListContextMixin, FinanceReadMix
         return queryset
 
 
-class InvoiceDetailView(FinanceReadMixin, DetailView):
+class InvoiceDetailView(SchoolScopedQuerysetMixin, FinanceReadMixin, DetailView):
     model = Invoice
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = "finance/invoice_detail.html"
     context_object_name = "invoice"
     permission_required = "finance.view_invoice"
 
     def get_object(self, queryset=None):
-        obj = get_object_or_404(
-            Invoice.objects.select_related(
-                "enrollment__student__user",
-                "enrollment__class_section",
-                "enrollment__term",
-                "enrollment__school",
-                "fee_structure",
-            ).prefetch_related("payments__received_by"),
-            pk=self.kwargs["pk"],
-        )
+        invoice_qs = Invoice.objects.select_related(
+            "enrollment__student__user",
+            "enrollment__class_section",
+            "enrollment__term",
+            "enrollment__school",
+            "fee_structure",
+        ).prefetch_related("payments__received_by")
+        if self.request.user.role != User.Role.PARENT:
+            # Staff: school-scoped — another school's invoice does not exist
+            # (404). Parents keep the relationship guard below (403 on a
+            # cross-ward invoice, preserved from the shipped behaviour).
+            invoice_qs = self.scope_queryset_to_school(invoice_qs)
+        obj = get_object_or_404(invoice_qs, pk=self.kwargs["pk"])
         _enforce_parent_invoice_access(self.request.user, obj)
         return obj
 
@@ -311,20 +316,24 @@ class InvoiceDetailView(FinanceReadMixin, DetailView):
         return context
 
 
-class PaymentReceiptDownloadView(FinanceReadMixin, View):
+class PaymentReceiptDownloadView(SchoolScopedQuerysetMixin, FinanceReadMixin, View):
+    # Payment -> invoice (finance.Invoice) -> enrollment -> school
+    school_lookup = "invoice__enrollment__school_id"
     permission_required = "finance.view_payment"
 
     def get(self, request, *args, **kwargs):
-        payment = get_object_or_404(
-            Payment.objects.select_related(
-                "invoice__enrollment__student__user",
-                "invoice__enrollment__class_section",
-                "invoice__enrollment__term",
-                "invoice__fee_structure",
-                "received_by",
-            ),
-            pk=kwargs["pk"],
+        payment_qs = Payment.objects.select_related(
+            "invoice__enrollment__student__user",
+            "invoice__enrollment__class_section",
+            "invoice__enrollment__term",
+            "invoice__fee_structure",
+            "received_by",
         )
+        if request.user.role != User.Role.PARENT:
+            # Staff: school-scoped (404 cross-school); parents keep the
+            # relationship guard below (403, preserved).
+            payment_qs = self.scope_queryset_to_school(payment_qs)
+        payment = get_object_or_404(payment_qs, pk=kwargs["pk"])
         if payment.status != Payment.Status.SUCCESSFUL:
             raise PermissionDenied
         _enforce_parent_invoice_access(request.user, payment.invoice)
@@ -385,8 +394,12 @@ class InvoiceUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, FinanceFor
 # Payment views
 # ---------------------------------------------------------------------------
 
-class PaymentCreateView(HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessageFormMixin, FinanceAdminWriteMixin, CreateView):
+class PaymentCreateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessageFormMixin, FinanceAdminWriteMixin, CreateView):
     model = Payment
+    # setup() resolves the *Invoice* the payment attaches to, so the lookup
+    # describes that Invoice queryset (CreateView never calls get_queryset
+    # on Payment itself): Invoice -> enrollment -> school.
+    school_lookup = "enrollment__school_id"
     form_class = PaymentForm
     template_name = "finance/payment_form.html"
     htmx_template_name = "finance/partials/payment_form_modal.html"
@@ -397,8 +410,12 @@ class PaymentCreateView(HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessa
 
     def setup(self, request, *args, **kwargs):
         super().setup(request, *args, **kwargs)
+        # School-scoped: staff of another school cannot render the payment
+        # form for (or record payments against) an invoice that is not theirs.
         self.invoice = get_object_or_404(
-            Invoice.objects.select_related("enrollment__student__user", "fee_structure"),
+            self.scope_queryset_to_school(
+                Invoice.objects.select_related("enrollment__student__user", "fee_structure")
+            ),
             pk=self.kwargs["invoice_pk"],
         )
 
@@ -595,7 +612,9 @@ class FeeArrearExportCsvView(FinanceAdminTeacherReadMixin, View):
 
 
 @method_decorator(login_required, name="dispatch")
-class SendArrearReminderView(FinanceAdminWriteMixin, View):
+class SendArrearReminderView(SchoolScopedQuerysetMixin, FinanceAdminWriteMixin, View):
+    # FeeArrear has a direct school FK.
+    school_lookup = "school_id"
     allowed_roles = (User.Role.SCHOOL_ADMIN,)
     permission_required = "finance.change_invoice"
 
@@ -607,7 +626,10 @@ class SendArrearReminderView(FinanceAdminWriteMixin, View):
             messages.warning(request, "Too many reminders sent. Please wait before sending more.")
             return HttpResponseRedirect(reverse("finance:fee-arrear-list"))
 
-        arrear = get_object_or_404(FeeArrear, pk=kwargs["pk"])
+        # School-scoped: another school's arrear does not exist (404).
+        arrear = get_object_or_404(
+            self.scope_queryset_to_school(FeeArrear.objects.all()), pk=kwargs["pk"]
+        )
         # Manual admin-triggered reminders bypass the throttle so the click always sends.
         sent = ReminderService.send_arrear_reminder(arrear, initiated_by=request.user, force=True)
         if sent:
@@ -618,7 +640,9 @@ class SendArrearReminderView(FinanceAdminWriteMixin, View):
 
 
 @method_decorator(login_required, name="dispatch")
-class SendBulkArrearReminderView(FinanceAdminWriteMixin, View):
+class SendBulkArrearReminderView(SchoolScopedQuerysetMixin, FinanceAdminWriteMixin, View):
+    # FeeArrear has a direct school FK.
+    school_lookup = "school_id"
     allowed_roles = (User.Role.SCHOOL_ADMIN,)
     permission_required = "finance.change_invoice"
 
@@ -631,7 +655,11 @@ class SendBulkArrearReminderView(FinanceAdminWriteMixin, View):
             return HttpResponseRedirect(reverse("finance:fee-arrear-list"))
 
         ids = request.POST.getlist("arrear_ids")
-        queryset = FeeArrear.objects.filter(pk__in=ids).select_related(
+        # School-scoped: posted ids outside the requester's school are
+        # silently dropped (the sent count reflects only own-school sends).
+        queryset = self.scope_queryset_to_school(
+            FeeArrear.objects.filter(pk__in=ids)
+        ).select_related(
             "student__user",
             "invoice__enrollment__student__user",
         )
@@ -644,7 +672,10 @@ class SendBulkArrearReminderView(FinanceAdminWriteMixin, View):
         return HttpResponseRedirect(reverse("finance:fee-arrear-list"))
 
 
-class MpesaSTKPushInitView(FinanceReadMixin, View):
+class MpesaSTKPushInitView(SchoolScopedQuerysetMixin, FinanceReadMixin, View):
+    # Invoice -> enrollment (students.Enrollment) -> school (the invoice is
+    # what this view resolves).
+    school_lookup = "enrollment__school_id"
     permission_required = "finance.view_invoice"
 
     def post(self, request, *args, **kwargs):
@@ -657,7 +688,12 @@ class MpesaSTKPushInitView(FinanceReadMixin, View):
         if rl_response:
             return rl_response
 
-        invoice = get_object_or_404(Invoice, pk=kwargs["invoice_pk"])
+        invoice_qs = Invoice.objects.all()
+        if request.user.role != User.Role.PARENT:
+            # Staff: school-scoped (404 cross-school); parents keep the
+            # relationship guard below (403, preserved).
+            invoice_qs = self.scope_queryset_to_school(invoice_qs)
+        invoice = get_object_or_404(invoice_qs, pk=kwargs["invoice_pk"])
         _enforce_parent_invoice_access(request.user, invoice)
 
         if invoice.balance <= Decimal("0.00"):
@@ -953,16 +989,22 @@ class MpesaCallbackView(View):
         return JsonResponse({"ok": True})
 
 
-class DeletedInvoiceListView(HtmxTemplateMixin, FinanceAdminWriteMixin, ListView):
+class DeletedInvoiceListView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, FinanceAdminWriteMixin, ListView):
     model = Invoice
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = "finance/deleted_invoice_list.html"
     htmx_template_name = "finance/partials/deleted_invoice_results.html"
     context_object_name = "invoices"
     paginate_by = 15
     permission_required = "finance.view_invoice"
 
-    def get_queryset(self):
-        return Invoice.all_objects.deleted().select_related(
+    def get_unscoped_queryset(self):
+        # Soft-deleted invoices only. AllSoftDeleteManager has no .deleted()
+        # shortcut (that helper exists on the students/ querysets only), so
+        # filter on deleted_at directly — the previous
+        # Invoice.all_objects.deleted() call raised AttributeError (500).
+        return Invoice.all_objects.filter(deleted_at__isnull=False).select_related(
             "enrollment__student__user",
             "enrollment__class_section",
             "enrollment__term",
@@ -1003,22 +1045,40 @@ class DeletedPaymentListView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, Finan
         return context
 
 
-class RestoreInvoiceView(FinanceAdminWriteMixin, View):
+class RestoreInvoiceView(SchoolScopedQuerysetMixin, FinanceAdminWriteMixin, View):
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = "finance.change_invoice"
 
     def post(self, request, *args, **kwargs):
-        invoice = Invoice.all_objects.select_related("enrollment__student__user").get(pk=kwargs["pk"])
+        # School-scoped over all_objects (the row is soft-deleted); a
+        # cross-school or unknown pk now 404s instead of restoring blindly.
+        invoice = get_object_or_404(
+            self.scope_queryset_to_school(
+                Invoice.all_objects.select_related("enrollment__student__user")
+            ),
+            pk=kwargs["pk"],
+        )
         invoice.deleted_at = None
         invoice.save(update_fields=["deleted_at", "updated_at"])
         messages.success(request, f"Invoice {invoice.invoice_number} restored successfully.")
         return HttpResponseRedirect(reverse("finance:invoice-detail", kwargs={"pk": invoice.pk}))
 
 
-class RestorePaymentView(FinanceAdminWriteMixin, View):
+class RestorePaymentView(SchoolScopedQuerysetMixin, FinanceAdminWriteMixin, View):
+    # Payment -> invoice (finance.Invoice) -> enrollment -> school
+    school_lookup = "invoice__enrollment__school_id"
     permission_required = "finance.change_payment"
 
     def post(self, request, *args, **kwargs):
-        payment = Payment.all_objects.select_related("invoice").get(pk=kwargs["pk"])
+        # School-scoped over all_objects (the row is soft-deleted); a
+        # cross-school or unknown pk now 404s instead of restoring blindly.
+        payment = get_object_or_404(
+            self.scope_queryset_to_school(
+                Payment.all_objects.select_related("invoice")
+            ),
+            pk=kwargs["pk"],
+        )
         payment.deleted_at = None
         payment.save(update_fields=["deleted_at", "updated_at"])
         payment.invoice.refresh_financial_state()

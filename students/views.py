@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db.models import Prefetch, Q
 from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 
@@ -306,8 +307,11 @@ class GuardianUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMe
 		return context
 
 
-class StudentGuardianRelationshipCreateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, CreateView):
+class StudentGuardianRelationshipCreateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, CreateView):
 	model = StudentGuardianRelationship
+	# dispatch() resolves the STUDENT the link attaches to (the SGR row
+	# inherits the student's school), so the lookup is the Student path.
+	school_lookup = "school_id"
 	form_class = StudentGuardianRelationshipForm
 	template_name = "students/relationship_form.html"
 	htmx_template_name = "students/partials/relationship_form.html"
@@ -315,7 +319,14 @@ class StudentGuardianRelationshipCreateView(HtmxTemplateMixin, SuccessMessageFor
 	success_message = "Guardian linked successfully."
 
 	def dispatch(self, request, *args, **kwargs):
-		self.student = Student.objects.select_related("school", "user").get(pk=kwargs["student_pk"])
+		# School-scoped: staff of another school cannot render the link form
+		# for a student that is not theirs (404).
+		self.student = get_object_or_404(
+			self.scope_queryset_to_school(
+				Student.objects.select_related("school", "user")
+			),
+			pk=kwargs["student_pk"],
+		)
 		return super().dispatch(request, *args, **kwargs)
 
 	def get_form_kwargs(self):
@@ -379,8 +390,11 @@ class StudentGuardianRelationshipDeleteView(SchoolScopedQuerysetMixin, HtmxTempl
 		return reverse("students:student-detail", kwargs={"pk": self.object.student_id})
 
 
-class EnrollmentCreateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, CreateView):
+class EnrollmentCreateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, CreateView):
 	model = Enrollment
+	# dispatch() resolves the STUDENT the enrollment attaches to, so the
+	# lookup is the Student path (Student -> school).
+	school_lookup = "school_id"
 	form_class = EnrollmentForm
 	template_name = "students/enrollment_form.html"
 	htmx_template_name = "students/partials/enrollment_form.html"
@@ -388,7 +402,14 @@ class EnrollmentCreateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentMo
 	success_message = "Enrollment created successfully."
 
 	def dispatch(self, request, *args, **kwargs):
-		self.student = Student.objects.select_related("school", "user").get(pk=kwargs["student_pk"])
+		# School-scoped: staff of another school cannot render the enrollment
+		# form for a student that is not theirs (404).
+		self.student = get_object_or_404(
+			self.scope_queryset_to_school(
+				Student.objects.select_related("school", "user")
+			),
+			pk=kwargs["student_pk"],
+		)
 		return super().dispatch(request, *args, **kwargs)
 
 	def get_form_kwargs(self):
@@ -473,22 +494,40 @@ class DeletedGuardianListView(HtmxTemplateMixin, SchoolScopeMixin, StudentModule
 		return context
 
 
-class RestoreStudentView(StudentModuleWriteMixin, View):
+class RestoreStudentView(SchoolScopedQuerysetMixin, StudentModuleWriteMixin, View):
+	# Student has a direct school FK.
+	school_lookup = "school_id"
 	permission_required = "students.change_student"
 
 	def post(self, request, *args, **kwargs):
-		student = Student.all_objects.select_related("user").get(pk=kwargs["pk"])
+		# School-scoped over all_objects (the row is soft-deleted); a
+		# cross-school or unknown pk now 404s instead of restoring blindly.
+		student = get_object_or_404(
+			self.scope_queryset_to_school(
+				Student.all_objects.select_related("user")
+			),
+			pk=kwargs["pk"],
+		)
 		student.deleted_at = None
 		student.save(update_fields=["deleted_at", "updated_at"])
 		messages.success(request, f"Student {student} restored successfully.")
 		return HttpResponseRedirect(reverse("students:student-detail", kwargs={"pk": student.pk}))
 
 
-class RestoreGuardianView(StudentModuleWriteMixin, View):
+class RestoreGuardianView(SchoolScopedQuerysetMixin, StudentModuleWriteMixin, View):
+	# Guardian has a direct school FK.
+	school_lookup = "school_id"
 	permission_required = "students.change_guardian"
 
 	def post(self, request, *args, **kwargs):
-		guardian = Guardian.all_objects.select_related("user").get(pk=kwargs["pk"])
+		# School-scoped over all_objects (the row is soft-deleted); a
+		# cross-school or unknown pk now 404s instead of restoring blindly.
+		guardian = get_object_or_404(
+			self.scope_queryset_to_school(
+				Guardian.all_objects.select_related("user")
+			),
+			pk=kwargs["pk"],
+		)
 		guardian.deleted_at = None
 		guardian.save(update_fields=["deleted_at", "updated_at"])
 		messages.success(request, f"Guardian {guardian} restored successfully.")
