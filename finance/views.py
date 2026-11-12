@@ -1,5 +1,6 @@
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+import hmac
 import json
 import csv
 
@@ -789,9 +790,16 @@ class MpesaCallbackView(View):
             or request.GET.get("token", "")
         )
         legacy_token = getattr(settings, "MPESA_CALLBACK_TOKEN", "")
-        if legacy_token and provided_token == legacy_token:
-            pass  # Legacy static token — still accepted for backward compat
-        elif provided_token and not validate_callback_token(provided_token):
+        # Default-deny: the callback is processed only when a legacy static
+        # token or a valid HMAC token is presented.  A MISSING token is a
+        # rejection, not a pass-through.  compare_digest runs on bytes because
+        # str inputs with non-ASCII characters raise TypeError.
+        legacy_ok = bool(legacy_token) and hmac.compare_digest(
+            provided_token.encode("utf-8"), legacy_token.encode("utf-8")
+        )
+        hmac_ok = bool(provided_token) and validate_callback_token(provided_token)
+
+        if not (legacy_ok or hmac_ok):
             _create_audit_log(
                 request=request,
                 actor=None,
@@ -871,6 +879,30 @@ class MpesaCallbackView(View):
                         },
                     )
                     return JsonResponse({"ok": True, "message": "Terminal state already set."})
+
+                # KSMS-02: never let the callback body set the credited
+                # amount.  On mismatch, record an audit row for a human and
+                # answer 200 so Safaricom does not retry forever; the payment
+                # stays untouched (not marked SUCCESSFUL).
+                callback_amount = values.get("Amount")
+                if callback_amount is not None:
+                    try:
+                        callback_amount = Decimal(str(callback_amount))
+                    except (InvalidOperation, ValueError):
+                        callback_amount = None
+                    if callback_amount is None or callback_amount != payment.amount:
+                        _create_audit_log(
+                            request=request,
+                            actor=None,
+                            object_repr=f"Payment {payment.reference_number}",
+                            metadata={
+                                "event": "mpesa_callback_amount_mismatch",
+                                "payment_id": payment.pk,
+                                "expected": str(payment.amount),
+                                "received": str(values.get("Amount")),
+                            },
+                        )
+                        return JsonResponse({"ok": True, "message": "Amount mismatch recorded."})
 
                 payment.status = Payment.Status.SUCCESSFUL
                 payment.mpesa_receipt_number = receipt_number or payment.mpesa_receipt_number

@@ -9,10 +9,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from academics.models import AcademicYear, ClassSection, Term
-from core.models import School, User
+from core.models import AuditLog, School, User
 from core.signals import sync_role_group_membership
 from finance.models import FeeArrear, FeeStructure, Invoice, Payment, ReminderPolicy
 from finance.forms import ReminderPolicyForm
+from finance.services.mpesa import generate_callback_token
 from finance.services.notifications import ReminderService
 from students.models import Enrollment, Guardian, Student, StudentGuardianRelationship
 
@@ -703,15 +704,18 @@ class MpesaFlowTests(FinanceModuleTestCase):
         }
 
         with self.settings(MPESA_CALLBACK_TOKEN=""):
+            token = generate_callback_token()
             first = self.client.post(
                 reverse("finance:mpesa-callback"),
                 data=json.dumps(callback_payload),
                 content_type="application/json",
+                HTTP_X_KSMS_CALLBACK_TOKEN=token,
             )
             second = self.client.post(
                 reverse("finance:mpesa-callback"),
                 data=json.dumps(callback_payload),
                 content_type="application/json",
+                HTTP_X_KSMS_CALLBACK_TOKEN=token,
             )
 
         self.assertEqual(first.status_code, 200)
@@ -722,6 +726,124 @@ class MpesaFlowTests(FinanceModuleTestCase):
         self.assertEqual(payment.status, Payment.Status.SUCCESSFUL)
         self.assertEqual(payment.mpesa_receipt_number, "RCP123456")
         self.assertEqual(self.invoice.amount_paid, Decimal("1500.00"))
+
+    def test_mpesa_callback_missing_token_rejected(self):
+        payment = Payment.objects.create(
+            invoice=self.invoice,
+            amount=Decimal("1500.00"),
+            payment_method=Payment.Method.MPESA,
+            status=Payment.Status.PENDING,
+            mpesa_phone_number="+254****0088",
+            mpesa_checkout_request_id="ws_missing_token",
+        )
+        callback_payload = {
+            "Body": {
+                "stkCallback": {
+                    "CheckoutRequestID": "ws_missing_token",
+                    "ResultCode": 0,
+                    "ResultDesc": "Success",
+                    "CallbackMetadata": {
+                        "Item": [
+                            {"Name": "Amount", "Value": 1500},
+                            {"Name": "MpesaReceiptNumber", "Value": "RCPMISSING"},
+                            {"Name": "PhoneNumber", "Value": 254700000088},
+                        ]
+                    },
+                }
+            }
+        }
+
+        with self.settings(MPESA_CALLBACK_TOKEN=""):
+            response = self.client.post(
+                reverse("finance:mpesa-callback"),
+                data=json.dumps(callback_payload),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 403)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+
+    def test_mpesa_callback_invalid_hmac_rejected(self):
+        payment = Payment.objects.create(
+            invoice=self.invoice,
+            amount=Decimal("1500.00"),
+            payment_method=Payment.Method.MPESA,
+            status=Payment.Status.PENDING,
+            mpesa_phone_number="+254****0088",
+            mpesa_checkout_request_id="ws_invalid_hmac",
+        )
+        callback_payload = {
+            "Body": {
+                "stkCallback": {
+                    "CheckoutRequestID": "ws_invalid_hmac",
+                    "ResultCode": 0,
+                    "ResultDesc": "Success",
+                    "CallbackMetadata": {
+                        "Item": [
+                            {"Name": "Amount", "Value": 1500},
+                            {"Name": "MpesaReceiptNumber", "Value": "RCPHMACBAD"},
+                            {"Name": "PhoneNumber", "Value": 254700000088},
+                        ]
+                    },
+                }
+            }
+        }
+
+        with self.settings(MPESA_CALLBACK_TOKEN=""):
+            response = self.client.post(
+                reverse("finance:mpesa-callback") + "?token=9999999999:deadbeef",
+                data=json.dumps(callback_payload),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 403)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+
+    def test_mpesa_callback_amount_mismatch_not_applied(self):
+        payment = Payment.objects.create(
+            invoice=self.invoice,
+            amount=Decimal("1500.00"),
+            payment_method=Payment.Method.MPESA,
+            status=Payment.Status.PENDING,
+            mpesa_phone_number="+254****0088",
+            mpesa_checkout_request_id="ws_amount_mismatch",
+        )
+        callback_payload = {
+            "Body": {
+                "stkCallback": {
+                    "CheckoutRequestID": "ws_amount_mismatch",
+                    "ResultCode": 0,
+                    "ResultDesc": "Success",
+                    "CallbackMetadata": {
+                        "Item": [
+                            {"Name": "Amount", "Value": 1},
+                            {"Name": "MpesaReceiptNumber", "Value": "RCPMISMATCH"},
+                            {"Name": "PhoneNumber", "Value": 254700000088},
+                        ]
+                    },
+                }
+            }
+        }
+
+        with self.settings(MPESA_CALLBACK_TOKEN=""):
+            token = generate_callback_token()
+            response = self.client.post(
+                reverse("finance:mpesa-callback"),
+                data=json.dumps(callback_payload),
+                content_type="application/json",
+                HTTP_X_KSMS_CALLBACK_TOKEN=token,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.amount, Decimal("1500.00"))
+        self.assertNotEqual(payment.status, Payment.Status.SUCCESSFUL)
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+        self.assertTrue(
+            AuditLog.objects.filter(metadata__event="mpesa_callback_amount_mismatch").exists()
+        )
 
     def test_mpesa_callback_invalid_token_rejected(self):
         payload = {"Body": {"stkCallback": {"CheckoutRequestID": "x", "ResultCode": 1}}}
