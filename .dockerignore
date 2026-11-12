@@ -12,3 +12,8 @@ media/
 staticfiles/
 logs/
 *.log
+
+# runtime state (db/redis/celery beat) - never ship in build context (t_eb3608ae)
+pg_data/
+redis_data/
+celerybeat-schedule*
