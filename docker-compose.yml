@@ -1,6 +1,13 @@
 # =============================================================================
-# KSMS Docker Compose — Local Development
-# Usage: docker compose up -d
+# KSMS Docker Compose — base file (prod-safe defaults)
+#
+# Which file is used where (see DEPLOYMENT.md "VPS deploy path" section):
+#   - Local dev: plain `docker compose up -d` from the repo root merges this
+#     file with docker-compose.override.yml, which turns DEBUG back on.
+#   - VPS (/opt/ksms-django): the running stack is created from
+#     docker-compose.prod.yml only (passed explicitly with -f; no override
+#     file exists there). This base file sets prod-safe defaults:
+#     DEBUG=False, DB_SSLMODE=disable (the stack's Postgres has no TLS).
 # =============================================================================
 
 services:
@@ -44,9 +51,10 @@ services:
       - DB_NAME=ksms
       - DB_USER=ksms
       - DB_PASSWORD=ksms_dev_password
+      - DB_SSLMODE=disable
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - DEBUG=True
+      - DEBUG=False
       - USE_SQLITE=False
     ports:
       - "8000:8000"
@@ -78,6 +86,7 @@ services:
       - DB_NAME=ksms
       - DB_USER=ksms
       - DB_PASSWORD=ksms_dev_password
+      - DB_SSLMODE=disable
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:

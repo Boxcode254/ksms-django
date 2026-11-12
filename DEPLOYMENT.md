@@ -380,3 +380,99 @@ WantedBy=multi-user.target
 | Redis memory | < 256MB |
 | Celery queue depth | < 100 |
 | Error rate | < 0.1% |
+
+---
+
+## 12. VPS Deploy Path (authoritative — how the live stack actually runs)
+
+Added 2026-11-12 after a config-drift audit (kanban t_681d9846) found the running
+container matched neither the repo nor `docker-compose.yml`. This section records
+the single authoritative deploy path so the three drifts found there (hardcoded
+`sslmode=require`, `DB_SSLMODE` missing from compose, `DEBUG=True` in compose)
+cannot accumulate silently again.
+
+### 12.1 What runs on the VPS
+
+| Component | Location / value |
+|---|---|
+| Repo on the VPS | `/opt/ksms-django` (clone of `Boxcode254/ksms-django`, branch main). May lag the canonical repo — sync deliberately and check `git log` after each deploy |
+| Compose file | `/opt/ksms-django/docker-compose.prod.yml` — the ONLY file that creates the running stack. It lives only on the VPS (untracked there, not in the repo) |
+| Env file | `/opt/ksms-django/.env` (untracked) — loaded by every service via `env_file:`. Holds secret values only (`SECRET_KEY`, `DB_PASSWORD`, `DEBUG=False`, `DB_SSLMODE=disable`, `ALLOWED_HOSTS`, …) — never commit or paste its contents |
+| Containers | `ksms-web` (127.0.0.1:8001), `ksms-db` (127.0.0.1:5433), `ksms-redis` (127.0.0.1:6380), `ksms-celery-worker`, `ksms-celery-beat` |
+| Network | `ksms-django_default` (compose default network) |
+| TLS | Terminated by nginx on the host; proxy to 127.0.0.1:8001 |
+
+### 12.2 Where `DB_SSLMODE` comes from (fail closed)
+
+`ksms/settings.py` reads:
+
+```python
+'OPTIONS': {
+    'sslmode': config('DB_SSLMODE', default='require'),
+},
+```
+
+- **Default `require` is deliberate** — if the variable is ever missing, the DB
+  connection fails closed instead of silently dropping transport encryption.
+- The VPS `/opt/ksms-django/.env` sets `DB_SSLMODE=disable` because the stack's
+  Postgres container has no TLS. `docker-compose.prod.yml` also sets
+  `PGSSLMODE=disable` (libpq-level) on web and celery-worker as belt-and-braces.
+- The repo `docker-compose.yml` now sets `DB_SSLMODE=disable` explicitly in the
+  web and celery-worker environment blocks, so a compose-driven run never
+  depends on a shell export.
+
+### 12.3 Where `DEBUG` comes from
+
+| Surface | Value |
+|---|---|
+| VPS `/opt/ksms-django/.env` | `DEBUG=False` — this is what the running container gets |
+| Repo `docker-compose.yml` (base) | `DEBUG=False` — prod-safe default |
+| Repo `docker-compose.override.yml` | `DEBUG=True` — local dev ONLY, auto-merged by plain `docker compose up`. **Never copy this file to the VPS** (the stack is started with `-f docker-compose.prod.yml`, which does not load override files) |
+
+With `DEBUG=False`, settings.py defaults to `SECURE_SSL_REDIRECT=True`,
+`SESSION_COOKIE_SECURE=True`, `CSRF_COOKIE_SECURE=True`. A container running
+`DEBUG=True` on the public host would turn all of those off — which is why the
+base compose file must stay prod-safe.
+
+### 12.4 Rebuild / restart procedure on the VPS
+
+```bash
+cd /opt/ksms-django
+docker compose -f docker-compose.prod.yml build web
+docker compose -f docker-compose.prod.yml up -d web   # recreates container, re-reads .env
+docker exec ksms-web printenv DEBUG DB_SSLMODE        # expect: False / disable
+docker exec ksms-web python manage.py check
+curl -s -o /dev/null -w '%{http_code}\n' -H "Host: ksms.coldroomexperts.co.ke" https://127.0.0.1/
+```
+
+Notes:
+- Always pass `-f docker-compose.prod.yml`. Plain `docker compose ...` from
+  `/opt/ksms-django` targets the DEV `docker-compose.yml` instead (different
+  ports, runserver command, volumes).
+- Use `up -d`, never `docker compose restart` — `restart` does NOT re-read
+  `.env` or compose environment changes; it only bounces the old container.
+- Before touching the live stack, prove a fresh image connects:
+
+```bash
+docker build -f Dockerfile -t ksms-rebuild-test .
+docker run --rm --network ksms-django_default \
+  -e DB_HOST=db -e DB_NAME=ksms -e DB_USER=ksms -e DB_PASSWORD="$DB_PASSWORD" \
+  -e DB_SSLMODE=disable -e DEBUG=False -e SECRET_KEY=check-only \
+  ksms-rebuild-test python manage.py check
+```
+
+### 12.5 Repo compose file map
+
+| File | Purpose | Used on VPS? |
+|---|---|---|
+| `docker-compose.yml` | Base compose; prod-safe defaults (`DEBUG=False`, `DB_SSLMODE=disable`) | No — not the deploy path |
+| `docker-compose.override.yml` | Local-dev override: `DEBUG=True` for the web service | NO — never copy to the VPS |
+| `docker-compose.prod.yml` (VPS-only) | The actual production stack | YES — the only file used |
+
+### 12.6 Local dev env files
+
+The dev compose services read `env_file: .env.docker` (gitignored; create it
+from `.env.example`). It must contain at minimum `SECRET_KEY`, the `DB_*` vars
+including `DB_SSLMODE=disable` (the dev Postgres container has no TLS), and any
+`CELERY_*` vars. `DEBUG` for local dev comes from
+`docker-compose.override.yml`, not from `.env.docker`.

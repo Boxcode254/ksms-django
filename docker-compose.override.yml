@@ -1,0 +1,14 @@
+# =============================================================================
+# KSMS local development overrides — NOT deployed to the VPS.
+#
+# Plain `docker compose ...` from the repo root automatically merges this file
+# on top of docker-compose.yml, restoring DEBUG=True for local development.
+#
+# The VPS deploy (/opt/ksms-django) starts the stack from docker-compose.prod.yml
+# passed explicitly with -f, which does NOT load override files — and this file
+# must never be copied to the VPS. See DEPLOYMENT.md ("VPS deploy path").
+# =============================================================================
+services:
+  web:
+    environment:
+      - DEBUG=True
