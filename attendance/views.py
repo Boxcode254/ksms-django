@@ -12,6 +12,7 @@ from django.views.generic import CreateView, ListView, TemplateView, UpdateView
 from academics.models import ClassSection, Subject, Term
 from core.authz import RolePermissionRequiredMixin
 from core.models import School, User
+from core.school_scoping import SchoolScopedQuerysetMixin
 from core.views_mixins import HtmxTemplateMixin, SuccessMessageFormMixin, htmx_redirect
 from students.models import Enrollment
 
@@ -383,7 +384,9 @@ class DailyAttendanceCreateView(AttendanceFormContextMixin, SuccessMessageFormMi
 		return reverse("attendance:daily-list")
 
 
-class DailyAttendanceUpdateView(AttendanceFormContextMixin, SuccessMessageFormMixin, AttendanceModuleWriteMixin, UpdateView):
+class DailyAttendanceUpdateView(SchoolScopedQuerysetMixin, AttendanceFormContextMixin, SuccessMessageFormMixin, AttendanceModuleWriteMixin, UpdateView):
+	# DailyAttendance -> enrollment (students.Enrollment) -> school
+	school_lookup = "enrollment__school_id"
 	model = DailyAttendance
 	form_class = DailyAttendanceForm
 	template_name = "attendance/daily_form.html"
@@ -437,7 +440,9 @@ class PeriodAttendanceCreateView(AttendanceFormContextMixin, SuccessMessageFormM
 		return reverse("attendance:period-list")
 
 
-class PeriodAttendanceUpdateView(AttendanceFormContextMixin, SuccessMessageFormMixin, AttendanceModuleWriteMixin, UpdateView):
+class PeriodAttendanceUpdateView(SchoolScopedQuerysetMixin, AttendanceFormContextMixin, SuccessMessageFormMixin, AttendanceModuleWriteMixin, UpdateView):
+	# PeriodAttendance -> enrollment (students.Enrollment) -> school
+	school_lookup = "enrollment__school_id"
 	model = PeriodAttendance
 	form_class = PeriodAttendanceForm
 	template_name = "attendance/period_form.html"

@@ -9,6 +9,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.authz import RolePermissionRequiredMixin
 from core.models import User
+from core.school_scoping import SchoolScopedQuerysetMixin
 from students.models import Enrollment
 
 from .forms import (
@@ -463,7 +464,9 @@ class ClassSectionCreateView(AcademicFormUserKwargsMixin, HtmxTemplateMixin, Aca
 		return reverse("academics:classsection-list")
 
 
-class ClassSectionUpdateView(AcademicFormUserKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+class ClassSectionUpdateView(SchoolScopedQuerysetMixin, AcademicFormUserKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+	# ClassSection has a direct school FK.
+	school_lookup = "school_id"
 	model = ClassSection
 	form_class = ClassSectionForm
 	template_name = "academics/classsection_form.html"
@@ -493,7 +496,9 @@ class SubjectCreateView(AcademicFormUserKwargsMixin, HtmxTemplateMixin, Academic
 		return reverse("academics:subject-list")
 
 
-class SubjectUpdateView(AcademicFormUserKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+class SubjectUpdateView(SchoolScopedQuerysetMixin, AcademicFormUserKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+	# Subject has a direct school FK.
+	school_lookup = "school_id"
 	model = Subject
 	form_class = SubjectForm
 	template_name = "academics/subject_form.html"
@@ -523,7 +528,9 @@ class TimetableEntryCreateView(AcademicFormUserKwargsMixin, FilteredFormKwargsMi
 		return reverse("academics:timetable-list")
 
 
-class TimetableEntryUpdateView(AcademicFormUserKwargsMixin, FilteredFormKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+class TimetableEntryUpdateView(SchoolScopedQuerysetMixin, AcademicFormUserKwargsMixin, FilteredFormKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+	# TimetableEntry has a direct school FK.
+	school_lookup = "school_id"
 	model = TimetableEntry
 	form_class = TimetableEntryForm
 	template_name = "academics/timetable_form.html"
@@ -578,7 +585,9 @@ class GradeResultCreateView(AcademicFormUserKwargsMixin, FilteredFormKwargsMixin
 		return reverse("academics:grade-list")
 
 
-class GradeResultUpdateView(AcademicFormUserKwargsMixin, FilteredFormKwargsMixin, AcademicScopedAccessMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicGradeWriteMixin, UpdateView):
+class GradeResultUpdateView(SchoolScopedQuerysetMixin, AcademicFormUserKwargsMixin, FilteredFormKwargsMixin, AcademicScopedAccessMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicGradeWriteMixin, UpdateView):
+	# GradeResult -> enrollment (students.Enrollment) -> school
+	school_lookup = "enrollment__school_id"
 	model = GradeResult
 	form_class = GradeResultForm
 	template_name = "academics/grade_form.html"
@@ -661,7 +670,9 @@ class TeacherCreateView(AcademicFormUserKwargsMixin, HtmxTemplateMixin, Academic
 		return reverse("academics:teacher-detail", kwargs={"pk": self.object.pk})
 
 
-class TeacherUpdateView(AcademicFormUserKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+class TeacherUpdateView(SchoolScopedQuerysetMixin, AcademicFormUserKwargsMixin, HtmxTemplateMixin, AcademicFormContextMixin, SuccessMessageFormMixin, AcademicModuleAdminWriteMixin, UpdateView):
+	# Teacher has a direct school FK.
+	school_lookup = "school_id"
 	model = Teacher
 	form_class = TeacherForm
 	template_name = "academics/teacher_form.html"

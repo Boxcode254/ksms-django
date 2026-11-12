@@ -24,6 +24,7 @@ from core.authz import RolePermissionRequiredMixin
 from core.cache_utils import CACHE_TTL_REFERENCE, reference_cache_key
 from core.models import AuditLog, School, User
 from core.request_context import get_client_ip, get_user_agent
+from core.school_scoping import SchoolScopedQuerysetMixin
 from finance.models import Invoice
 from students.models import Enrollment, Student
 
@@ -321,12 +322,17 @@ class AttendanceReportView(ReportsAdminTeacherMixin, ListView):
         return context
 
 
-class AttendanceReportCSVView(ReportsAdminTeacherMixin, ListView):
+class AttendanceReportCSVView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = DailyAttendance
+    # DailyAttendance -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = 'attendance.view_dailyattendance'
 
+    def get_unscoped_queryset(self):
+        return _attendance_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _attendance_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _csv_response('attendance_report.csv')
@@ -351,12 +357,17 @@ class AttendanceReportCSVView(ReportsAdminTeacherMixin, ListView):
         return response
 
 
-class AttendanceReportPDFView(ReportsAdminTeacherMixin, ListView):
+class AttendanceReportPDFView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = DailyAttendance
+    # DailyAttendance -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = 'attendance.view_dailyattendance'
 
+    def get_unscoped_queryset(self):
+        return _attendance_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _attendance_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _pdf_response('attendance_report.pdf')
@@ -422,12 +433,17 @@ class FeeReportView(ReportsAdminOnlyMixin, ListView):
         return context
 
 
-class FeeReportCSVView(ReportsAdminOnlyMixin, ListView):
+class FeeReportCSVView(SchoolScopedQuerysetMixin, ReportsAdminOnlyMixin, ListView):
     model = Invoice
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = 'finance.view_invoice'
 
+    def get_unscoped_queryset(self):
+        return _fee_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _fee_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _csv_response('fee_report.csv')
@@ -455,12 +471,17 @@ class FeeReportCSVView(ReportsAdminOnlyMixin, ListView):
         return response
 
 
-class FeeReportPDFView(ReportsAdminOnlyMixin, ListView):
+class FeeReportPDFView(SchoolScopedQuerysetMixin, ReportsAdminOnlyMixin, ListView):
     model = Invoice
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = 'finance.view_invoice'
 
+    def get_unscoped_queryset(self):
+        return _fee_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _fee_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _pdf_response('fee_report.pdf')
@@ -519,12 +540,17 @@ class StudentRegisterView(ReportsAdminTeacherMixin, ListView):
         return context
 
 
-class StudentRegisterCSVView(ReportsAdminTeacherMixin, ListView):
+class StudentRegisterCSVView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = Enrollment
+    # Enrollment has a direct school FK.
+    school_lookup = "school_id"
     permission_required = ('students.view_enrollment', 'students.view_student')
 
+    def get_unscoped_queryset(self):
+        return _student_register_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _student_register_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _csv_response('student_register.csv')
@@ -549,12 +575,17 @@ class StudentRegisterCSVView(ReportsAdminTeacherMixin, ListView):
         return response
 
 
-class StudentRegisterPDFView(ReportsAdminTeacherMixin, ListView):
+class StudentRegisterPDFView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = Enrollment
+    # Enrollment has a direct school FK.
+    school_lookup = "school_id"
     permission_required = ('students.view_enrollment', 'students.view_student')
 
+    def get_unscoped_queryset(self):
+        return _student_register_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _student_register_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _pdf_response('student_register.pdf')
@@ -614,12 +645,17 @@ class AcademicSummaryView(ReportsAdminTeacherMixin, ListView):
         return context
 
 
-class AcademicSummaryCSVView(ReportsAdminTeacherMixin, ListView):
+class AcademicSummaryCSVView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = GradeResult
+    # GradeResult -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = 'academics.view_graderesult'
 
+    def get_unscoped_queryset(self):
+        return _academic_summary_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _academic_summary_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _csv_response('academic_summary.csv')
@@ -646,12 +682,17 @@ class AcademicSummaryCSVView(ReportsAdminTeacherMixin, ListView):
         return response
 
 
-class AcademicSummaryPDFView(ReportsAdminTeacherMixin, ListView):
+class AcademicSummaryPDFView(SchoolScopedQuerysetMixin, ReportsAdminTeacherMixin, ListView):
     model = GradeResult
+    # GradeResult -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     permission_required = 'academics.view_graderesult'
 
+    def get_unscoped_queryset(self):
+        return _academic_summary_filtered_qs(self.request)
+
     def get(self, request, *args, **kwargs):
-        qs = _academic_summary_filtered_qs(request)
+        qs = self.get_queryset()
         qs, total_count, truncated, limit = _apply_export_limit(qs)
 
         response = _pdf_response('academic_summary.pdf')

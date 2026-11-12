@@ -8,6 +8,7 @@ from core.authz import RolePermissionRequiredMixin
 from core.encryption import fingerprint_value
 from core.models import User
 from core.scoping import SchoolScopeMixin
+from core.school_scoping import SchoolScopedQuerysetMixin
 from core.views_mixins import HtmxTemplateMixin, SuccessMessageFormMixin, htmx_redirect
 
 from .forms import (
@@ -247,7 +248,9 @@ class StudentCreateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModul
 		return context
 
 
-class StudentUpdateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+class StudentUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+	# Student has a direct school FK.
+	school_lookup = "school_id"
 	model = Student
 	form_class = StudentForm
 	template_name = "students/student_form.html"
@@ -283,7 +286,9 @@ class GuardianCreateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModu
 		return context
 
 
-class GuardianUpdateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+class GuardianUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+	# Guardian has a direct school FK.
+	school_lookup = "school_id"
 	model = Guardian
 	form_class = GuardianForm
 	template_name = "students/guardian_form.html"
@@ -328,7 +333,9 @@ class StudentGuardianRelationshipCreateView(HtmxTemplateMixin, SuccessMessageFor
 		return context
 
 
-class StudentGuardianRelationshipUpdateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+class StudentGuardianRelationshipUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+	# StudentGuardianRelationship -> student (students.Student) -> school
+	school_lookup = "student__school_id"
 	model = StudentGuardianRelationship
 	form_class = StudentGuardianRelationshipForm
 	template_name = "students/relationship_form.html"
@@ -351,7 +358,9 @@ class StudentGuardianRelationshipUpdateView(HtmxTemplateMixin, SuccessMessageFor
 		return context
 
 
-class StudentGuardianRelationshipDeleteView(HtmxTemplateMixin, StudentModuleWriteMixin, DeleteView):
+class StudentGuardianRelationshipDeleteView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, StudentModuleWriteMixin, DeleteView):
+	# StudentGuardianRelationship -> student (students.Student) -> school
+	school_lookup = "student__school_id"
 	model = StudentGuardianRelationship
 	template_name = "students/relationship_confirm_delete.html"
 	htmx_template_name = "students/partials/relationship_confirm_delete.html"
@@ -404,7 +413,9 @@ class EnrollmentCreateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentMo
 		return context
 
 
-class EnrollmentUpdateView(HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+class EnrollmentUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, SuccessMessageFormMixin, StudentModuleWriteMixin, UpdateView):
+	# Enrollment has a direct school FK.
+	school_lookup = "school_id"
 	model = Enrollment
 	form_class = EnrollmentForm
 	template_name = "students/enrollment_form.html"

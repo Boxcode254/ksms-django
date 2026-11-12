@@ -35,6 +35,7 @@ from cbc.services.pdf import render_report_pdf
 from core.authz import RoleRequiredMixin
 from core.cache_utils import CACHE_TTL_REFERENCE, reference_cache_key
 from core.models import User
+from core.school_scoping import SchoolScopedQuerysetMixin
 from students.models import Student, StudentGuardianRelationship
 
 
@@ -90,13 +91,15 @@ def _user_can_view_report(user, report):
 # Report list / create / edit / detail
 # ---------------------------------------------------------------------------
 
-class CBCReportListView(CBCStaffMixin, ListView):
+class CBCReportListView(SchoolScopedQuerysetMixin, CBCStaffMixin, ListView):
     model = CBCReport
+    # CBCReport -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     template_name = "cbc/report_list.html"
     context_object_name = "reports"
     paginate_by = 25
 
-    def get_queryset(self):
+    def get_unscoped_queryset(self):
         qs = (
             CBCReport.objects.select_related(
                 "enrollment__student__user",
@@ -484,13 +487,15 @@ class CBCBulkGenerateStubView(CBCStaffMixin, View):
 # Strand catalog CRUD (admin-only writes; staff-readable list)
 # ---------------------------------------------------------------------------
 
-class StrandListView(CBCStaffMixin, ListView):
+class StrandListView(SchoolScopedQuerysetMixin, CBCStaffMixin, ListView):
     model = Strand
+    # Strand -> subject (academics.Subject) -> school
+    school_lookup = "subject__school_id"
     template_name = "cbc/strand_list.html"
     context_object_name = "strands"
     paginate_by = 50
 
-    def get_queryset(self):
+    def get_unscoped_queryset(self):
         qs = Strand.objects.select_related("subject").prefetch_related("sub_strands").order_by(
             "subject__name", "grade_level", "order", "name"
         )
@@ -515,14 +520,18 @@ class StrandCreateView(CBCAdminMixin, CreateView):
     success_url = reverse_lazy("cbc:strand-list")
 
 
-class StrandUpdateView(CBCAdminMixin, UpdateView):
+class StrandUpdateView(SchoolScopedQuerysetMixin, CBCAdminMixin, UpdateView):
+    # Strand -> subject (academics.Subject) -> school
+    school_lookup = "subject__school_id"
     model = Strand
     form_class = StrandForm
     template_name = "cbc/strand_form.html"
     success_url = reverse_lazy("cbc:strand-list")
 
 
-class StrandDeleteView(CBCAdminMixin, DeleteView):
+class StrandDeleteView(SchoolScopedQuerysetMixin, CBCAdminMixin, DeleteView):
+    # Strand -> subject (academics.Subject) -> school
+    school_lookup = "subject__school_id"
     model = Strand
     template_name = "cbc/strand_confirm_delete.html"
     success_url = reverse_lazy("cbc:strand-list")
@@ -542,14 +551,18 @@ class SubStrandCreateView(CBCAdminMixin, CreateView):
         return initial
 
 
-class SubStrandUpdateView(CBCAdminMixin, UpdateView):
+class SubStrandUpdateView(SchoolScopedQuerysetMixin, CBCAdminMixin, UpdateView):
+    # SubStrand -> strand (cbc.Strand) -> subject -> school
+    school_lookup = "strand__subject__school_id"
     model = SubStrand
     form_class = SubStrandForm
     template_name = "cbc/sub_strand_form.html"
     success_url = reverse_lazy("cbc:strand-list")
 
 
-class SubStrandDeleteView(CBCAdminMixin, DeleteView):
+class SubStrandDeleteView(SchoolScopedQuerysetMixin, CBCAdminMixin, DeleteView):
+    # SubStrand -> strand (cbc.Strand) -> subject -> school
+    school_lookup = "strand__subject__school_id"
     model = SubStrand
     template_name = "cbc/sub_strand_confirm_delete.html"
     success_url = reverse_lazy("cbc:strand-list")

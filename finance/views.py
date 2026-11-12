@@ -22,6 +22,7 @@ from core.authz import RolePermissionRequiredMixin
 from core.models import AuditLog, School, User
 from core.ratelimit import check_rate_limit
 from core.request_context import get_client_ip, get_user_agent
+from core.school_scoping import SchoolScopedQuerysetMixin
 from core.validators import kenya_phone_validator
 from core.views_mixins import HtmxTemplateMixin, SuccessMessageFormMixin, htmx_redirect
 from reports.views import _build_pdf_report, _pdf_response
@@ -189,7 +190,9 @@ class FeeStructureCreateView(HtmxTemplateMixin, FinanceFormContextMixin, Success
         return reverse("finance:feestructure-list")
 
 
-class FeeStructureUpdateView(HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessageFormMixin, FinanceAdminWriteMixin, UpdateView):
+class FeeStructureUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessageFormMixin, FinanceAdminWriteMixin, UpdateView):
+    # FeeStructure has a direct school FK.
+    school_lookup = "school_id"
     model = FeeStructure
     form_class = FeeStructureForm
     template_name = "finance/feestructure_form.html"
@@ -361,7 +364,9 @@ class InvoiceCreateView(HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessa
         return reverse("finance:invoice-detail", kwargs={"pk": self.object.pk})
 
 
-class InvoiceUpdateView(HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessageFormMixin, FinanceAdminWriteMixin, UpdateView):
+class InvoiceUpdateView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, FinanceFormContextMixin, SuccessMessageFormMixin, FinanceAdminWriteMixin, UpdateView):
+    # Invoice -> enrollment (students.Enrollment) -> school
+    school_lookup = "enrollment__school_id"
     model = Invoice
     form_class = InvoiceForm
     template_name = "finance/invoice_form.html"
@@ -971,16 +976,22 @@ class DeletedInvoiceListView(HtmxTemplateMixin, FinanceAdminWriteMixin, ListView
         return context
 
 
-class DeletedPaymentListView(HtmxTemplateMixin, FinanceAdminWriteMixin, ListView):
+class DeletedPaymentListView(SchoolScopedQuerysetMixin, HtmxTemplateMixin, FinanceAdminWriteMixin, ListView):
     model = Payment
+    # Payment -> invoice (finance.Invoice) -> enrollment -> school
+    school_lookup = "invoice__enrollment__school_id"
     template_name = "finance/deleted_payment_list.html"
     htmx_template_name = "finance/partials/deleted_payment_results.html"
     context_object_name = "payments"
     paginate_by = 15
     permission_required = "finance.view_payment"
 
-    def get_queryset(self):
-        return Payment.all_objects.deleted().select_related(
+    def get_unscoped_queryset(self):
+        # Soft-deleted payments only. AllSoftDeleteManager has no .deleted()
+        # shortcut (that helper exists on the students/ querysets only), so
+        # filter on deleted_at directly — the previous
+        # Payment.all_objects.deleted() call raised AttributeError (500).
+        return Payment.all_objects.filter(deleted_at__isnull=False).select_related(
             "invoice__enrollment__student__user",
             "invoice__fee_structure",
             "received_by",
