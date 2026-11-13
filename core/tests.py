@@ -1,4 +1,7 @@
-from django.test import TestCase
+from pathlib import Path
+
+from django.conf import settings
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from cryptography.fernet import InvalidToken
 
@@ -292,3 +295,67 @@ class UserTeacherPermissionHelperTests(TestCase):
 		assigned_ids = set(self.superuser.get_assigned_classes().values_list("id", flat=True))
 		self.assertEqual(assigned_ids, {self.section_a.id, self.section_b.id, self.other_section.id})
 		self.assertTrue(self.superuser.can_mark_class_register(self.other_section))
+
+
+class EntrypointCeleryGatingTests(SimpleTestCase):
+	"""t_61b74dc9: web entrypoint must NOT start Celery worker/beat by default.
+
+	Prod runs dedicated ksms-celery-worker / ksms-celery-beat containers against
+	the same broker. Celery beat has no distributed lock, so a second beat
+	inside ksms-web sends every due periodic task twice. The in-container
+	Celery block is therefore opt-in via RUN_CELERY=1 (single-container installs
+	only); default is OFF. The entrypoint is executed here with stub commands on
+	PATH so no real celery/gunicorn/python runs.
+	"""
+
+	def _run_entrypoint(self, env_extra):
+		import shutil
+		import subprocess
+		import tempfile
+
+		tmp = tempfile.mkdtemp(prefix="ksms-entrypoint-test-")
+		self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+		log = Path(tmp) / "calls.log"
+		shim_dir = Path(tmp) / "bin"
+		shim_dir.mkdir()
+		shim_body = "#!/bin/sh\necho \"$0 $*\" >> \"$CALLS_LOG\"\n"
+		for name in ("python", "celery", "gunicorn", "tail"):
+			shim = shim_dir / name
+			shim.write_text(shim_body)
+			shim.chmod(0o755)
+		env = {"PATH": f"{shim_dir}:/usr/bin:/bin", "CALLS_LOG": str(log)}
+		env.update(env_extra)
+		subprocess.run(
+			["/bin/sh", str(Path(settings.BASE_DIR) / "entrypoint.sh")],
+			env=env, check=True, capture_output=True, timeout=60,
+		)
+		calls = []
+		for line in log.read_text().splitlines():
+			parts = line.split()
+			calls.append((parts[0].rstrip("/").split("/")[-1], " ".join(parts[1:])))
+		return calls
+
+	def _celery_calls(self, calls):
+		return [args for proc, args in calls if proc == "celery"]
+
+	def _gunicorn_calls(self, calls):
+		return [args for proc, args in calls if proc == "gunicorn"]
+
+	def test_celery_is_not_started_when_run_celery_unset(self):
+		calls = self._run_entrypoint({})
+		self.assertEqual(self._celery_calls(calls), [])
+		self.assertEqual(len(self._gunicorn_calls(calls)), 1)
+
+	def test_celery_worker_and_beat_start_when_run_celery_1(self):
+		calls = self._run_entrypoint({"RUN_CELERY": "1"})
+		celery_calls = self._celery_calls(calls)
+		workers = [c for c in celery_calls if "worker" in c.split()]
+		beats = [c for c in celery_calls if "beat" in c.split()]
+		self.assertEqual(len(workers), 1)
+		self.assertIn("--concurrency=1", workers[0])
+		self.assertEqual(len(beats), 1)
+		self.assertEqual(len(self._gunicorn_calls(calls)), 1)
+
+	def test_gate_literal_defaults_to_zero(self):
+		entrypoint = (Path(settings.BASE_DIR) / "entrypoint.sh").read_text()
+		self.assertIn('RUN_CELERY="${RUN_CELERY:-0}"', entrypoint)

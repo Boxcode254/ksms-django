@@ -22,12 +22,20 @@ echo "[3/4] Ensuring superuser..."
 python manage.py ensure_superuser 2>&1
 echo "      Superuser check complete."
 
-# Step 4: Start Celery Worker & Beat in the background
-echo "[4/5] Starting Celery Worker (concurrency=1)..."
-celery -A ksms worker --loglevel=info --concurrency=1 &
+# Step 4: Optional in-container Celery (worker+beat) — opt-in via RUN_CELERY=1.
+# OFF by default: prod runs dedicated celery-worker / celery-beat containers on
+# the same broker, and celery beat has no cross-scheduler lock — a second beat
+# here would enqueue every due periodic task twice (t_61b74dc9).
+RUN_CELERY="${RUN_CELERY:-0}"
+if [ "$RUN_CELERY" = "1" ]; then
+    echo "[4/5] Starting Celery Worker (concurrency=1)..."
+    celery -A ksms worker --loglevel=info --concurrency=1 &
 
-echo "[5/5] Starting Celery Beat..."
-celery -A ksms beat --loglevel=info &
+    echo "[5/5] Starting Celery Beat..."
+    celery -A ksms beat --loglevel=info &
+else
+    echo "[4/5] RUN_CELERY != 1 -> skipping in-container Celery (dedicated celery-worker/celery-beat containers own it)"
+fi
 
 # Step 5: Start gunicorn
 echo "Starting gunicorn on port ${PORT:-8000}..."
